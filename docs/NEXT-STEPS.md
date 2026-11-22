@@ -2,7 +2,7 @@
 
 Дата: 22.11.2026.
 
-## Доказано без изменения действующих VPN-серверов
+## Доказано
 
 - два 3x-ui 3.11.0 в изолированном Hetzner lab;
 - entry master → exit node с pin-enrollment, затем mTLS и удаление API token;
@@ -13,6 +13,10 @@
 - IPv4 primary, IPv6 fallback, fail-closed и recovery;
 - transactional backup/rollback, повторный idempotent deploy;
 - redacted status: entry/exit `READY`; TCP/XHTTP/XHTTP+ML-KEM/gRPC/Hysteria 2 listeners активны.
+- guarded reference adoption: IPv4 primary/IPv6 fallback, XHTTP/8443 и Hysteria 2/UDP443
+  committed только после server E2E и ручного подтверждения HAPP;
+- SSH/Fail2ban hardening на reference RU прошёл config tests, новый SSH login и commit;
+- публичный GitHub-репозиторий создан; production `deploy` по-прежнему fail-closed.
 
 ## Почему работа не переходит автоматически дальше
 
@@ -20,8 +24,8 @@
 
 1. **WARP E2E** — регистрирует Cloudflare device и создаёт credential. Нужно явное согласие.
 2. **Production clean-host E2E** — нужны два независимых публичных IP для ACME, UFW, systemd и provider IPv6.
-3. **Adopt действующих RU/NL** — меняет рабочий VPN и требует dead-man watchdog и ручной commit.
-4. **GitHub publication** — Design Preview можно опубликовать сейчас, потому что production-мутации fail-closed. Для создания внешнего репозитория нужен только выбранный GitHub owner и авторизация.
+3. **Public production UX** — упаковать внутренний fresh-host controller в безопасную
+   `vpnctl deploy`; reference adopt не заменяет clean-host E2E.
 
 До прохождения clean-host E2E публичная production-мутация остаётся fail-closed. Это не мешает
 дальше улучшать код и тесты, но не позволяет честно объявить установщик production-ready.

@@ -83,12 +83,19 @@ rollback обеих БД, затем ownership-scoped rollback обеих уст
 
 Для уже работающего reference-каскада отдельно собран narrow live-upgrade controller: он снимает
 согласованный 3x-ui API snapshot, запускает worker независимо от SSH, взводит systemd rollback
-watchdog и меняет только balancer/observatory и порядок BitTorrent rule. Forced rollback,
-commit и механика transient systemd units прошли isolated rehearsal. На живых RU/NL он не
-запускался и к публичному CLI не подключён.
+watchdog и меняет только точно заданные ресурсы. Forced rollback, commit и
+механика transient systemd units прошли isolated rehearsal. Этот же внутренний
+controller применён к reference RU entry для routing, XHTTP и Hysteria 2; каждая
+транзакция до commit оставалась под dead-man rollback. К публичному CLI он не подключён.
 Для сценария без запасного интернета добавлен dead-man confirmation gate: server-side E2E не отменяет
 watchdog; только явное подтверждение работы HAPP фиксирует commit, а потеря связи даёт
 таймеру автоматически вернуть snapshot.
+
+Reference Hysteria 2 adoption добавляет trusted ACME IP TLS на `443/udp`, тот же
+subscription ID и существующее cascade rule. TCP/443, XHTTP/8443 и exit не заменяются.
+Verifier до commit доказывает UDP/TLS cascade egress и проверяет endpoint, auth, TLS,
+SNI и `h3` ALPN в `hysteria2://`. Для принудительного HAPP refresh используется
+15-минутное rollback-окно. Reference-транзакция подтверждена и committed 22.11.2026.
 
 ## Локальная проверка Design Preview
 

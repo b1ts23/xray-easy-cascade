@@ -27,6 +27,14 @@ type Options struct {
 	ClientInboundTag      string
 	ObservatoryInterval   string
 	RequireOperatorCommit bool
+	RollbackAfter         string
+}
+
+func (o Options) rollbackAfter() string {
+	if o.RollbackAfter == "" {
+		return "5m"
+	}
+	return o.RollbackAfter
 }
 
 func rollbackScript(o Options, txID string) string {
@@ -231,14 +239,14 @@ chmod 0600 "$txdir"/*
 stage=arm-watchdog
 rollback_unit=xray-cascade-live-rollback-$tx
 worker_unit=xray-cascade-live-worker-$tx
-systemd-run --quiet --unit "$rollback_unit" --on-active=5m /bin/bash "$txdir/rollback.sh"
+systemd-run --quiet --unit "$rollback_unit" --on-active=%s /bin/bash "$txdir/rollback.sh"
 watchdog_armed=true
 stage=start-worker
 systemd-run --quiet --unit "$worker_unit" --collect /bin/bash "$txdir/worker.sh"
 begin_ok=true
 echo "3XUI_LIVE_UPGRADE_ARMED transaction=$tx"
 trap - EXIT INT TERM
-`, txID, o.CurlTLS, o.CurlTLS, rollbackPayload, workerPayload, o.Scheme, o.Port, o.BasePath, o.CurlTLS, o.CurlTLS, o.CurlTLS), nil
+`, txID, o.CurlTLS, o.CurlTLS, rollbackPayload, workerPayload, o.Scheme, o.Port, o.BasePath, o.CurlTLS, o.CurlTLS, o.CurlTLS, o.rollbackAfter()), nil
 }
 
 // CommitScript confirms a manually gated live upgrade. It races safely with
@@ -306,6 +314,9 @@ func (o Options) validate() error {
 	}
 	if !safeInterval.MatchString(o.ObservatoryInterval) {
 		return errors.New("observatory interval must be a positive s, m, or h duration")
+	}
+	if !safeInterval.MatchString(o.rollbackAfter()) {
+		return errors.New("rollback deadline must be a positive s, m, or h duration")
 	}
 	return nil
 }

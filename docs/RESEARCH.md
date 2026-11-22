@@ -71,7 +71,7 @@ API, отсутствующий в Python 3.9. Это не VPS E2E.
 | Cascade model | Xrayebator | Автоматизировать end-to-end |
 | HAPP subscription | оба проекта + 3x-ui | Через центральную панель |
 | AWG | Xrayebator/3x-ui | Исключить |
-| Hysteria 2 | Xrayebator + official Xray/3x-ui | Опциональный UDP+TLS-вход; cascade/subscription E2E прошёл 22.11.2026 |
+| Hysteria 2 | Xrayebator + official Xray/3x-ui | Опциональный UDP+TLS-вход; lab E2E и guarded reference adoption прошли 22.11.2026 |
 | Self-SNI | Bob/Xrayebator | Отложить |
 | Electron GUI | Xrayebator | Не брать в MVP |
 | VLESS Encryption ML-KEM | Xrayebator + official Xray/3x-ui | Отдельный opt-in XHTTP inbound; cascade/subscription E2E прошёл 22.11.2026 |

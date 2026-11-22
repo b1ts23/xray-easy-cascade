@@ -62,7 +62,7 @@ func TestEntryScriptCarriesSecretsEncodedAndUses3XUIAPI(t *testing.T) {
 	if strings.Contains(script, "secret-node-token") {
 		t.Fatal("plaintext node token appears in generated shell")
 	}
-	for _, required := range []string{"/nodes/test", "/inbounds/add", "/inbounds/del/", "/server/getNewVlessEnc", "/xray/update", "3XUI_ENTRY_CONFIG_READY", "cascade-exit-ipv4", "cascade-exit-ipv6", "cascade-exit-xhttp-ipv4", "cascade-exit-xhttp-ipv6", "in-cascade-exit-xhttp", "balancer_fallback=blocked", "balancer_strategy=leastPing", "observatory", `in-client-entry-xhttp`, `in-client-entry-xhttp-pq`, `in-client-entry-grpc`, `in-client-entry-hysteria2`, `protocol:["bittorrent"]`, `ip:["geoip:private"]`, `network:"xhttp"`, `network:"grpc"`, `protocol:"hysteria"`, `flow:""`, `mlkem768x25519plus.native.`, `subSortIndex:2`, `subSortIndex:3`, `subSortIndex:4`, `subSortIndex:5`} {
+	for _, required := range []string{"/nodes/test", "/inbounds/add", "/inbounds/del/", "/server/getNewVlessEnc", "/xray/update", "3XUI_ENTRY_CONFIG_READY", "cascade-exit-ipv4", "cascade-exit-ipv6", "cascade-exit-xhttp-ipv4", "cascade-exit-xhttp-ipv6", "in-cascade-exit-xhttp", "balancer_fallback=blocked", "balancer_strategy=leastPing", "observatory", `in-client-entry-xhttp`, `in-client-entry-xhttp-pq`, `in-client-entry-grpc`, `in-client-entry-hysteria2`, `protocol:["bittorrent"]`, `ip:["geoip:private"]`, `network:"xhttp"`, `network:"grpc"`, `protocol:"hysteria"`, `flow:""`, `mlkem768x25519plus.native.`, `current_pin`, `pinnedPeerCertSha256[0]`, `subSortIndex:2`, `subSortIndex:3`, `subSortIndex:4`, `subSortIndex:5`} {
 		if !strings.Contains(script, required) {
 			t.Fatalf("generated script missing %q", required)
 		}

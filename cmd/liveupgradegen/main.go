@@ -18,7 +18,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 || len(os.Args) > 3 {
-		fmt.Fprintln(os.Stderr, "usage: liveupgradegen <apply|launcher|launcher-failure|reference-verify-lab|reference-verify|reference-launcher|xhttp-apply-lab|xhttp-launcher-lab|xhttp-launcher-failure-lab|reference-xhttp-apply|reference-xhttp-verify|reference-xhttp-launcher|commit|status> [transaction-id]")
+		fmt.Fprintln(os.Stderr, "usage: liveupgradegen <apply|launcher|launcher-failure|reference-verify-lab|reference-verify|reference-launcher|xhttp-apply-lab|xhttp-launcher-lab|xhttp-launcher-failure-lab|hysteria-apply-lab|hysteria-verify-lab|hysteria-launcher-lab|hysteria-launcher-failure-lab|reference-xhttp-apply|reference-xhttp-verify|reference-xhttp-launcher|reference-hysteria-apply|reference-hysteria-verify|reference-hysteria-launcher|commit|status> [transaction-id]")
 		os.Exit(2)
 	}
 	options := liveupgrade.Options{
@@ -153,6 +153,70 @@ func main() {
 		}
 		verify := sequenceScripts(primaryVerify, xhttpVerify)
 		script, err = liveupgrade.LauncherWithApplyScript(options, os.Args[2], apply, verify, false)
+	case "hysteria-apply-lab", "hysteria-verify-lab", "hysteria-launcher-lab", "hysteria-launcher-failure-lab":
+		transport := labHysteriaOptions()
+		apply, buildErr := liveupgrade.HysteriaApplyScript(options, transport)
+		if buildErr != nil {
+			err = buildErr
+			break
+		}
+		if os.Args[1] == "hysteria-apply-lab" {
+			script = apply
+			break
+		}
+		verify, buildErr := liveupgrade.HysteriaVerifyScript(options, liveupgrade.HysteriaVerifyOptions{
+			Transport: transport, SubscriptionPort: 2096,
+			ExpectedExitIPv4: os.Getenv("XRAY_CASCADE_LAB_EXPECTED_EXIT_IPV4"),
+			ExpectedExitIPv6: "2001:db8:3::30",
+		})
+		if buildErr != nil {
+			err = buildErr
+			break
+		}
+		if os.Args[1] == "hysteria-verify-lab" {
+			script = verify
+			break
+		}
+		if len(os.Args) != 3 {
+			err = fmt.Errorf("Hysteria lab launcher requires transaction ID")
+			break
+		}
+		script, err = liveupgrade.LauncherWithApplyScript(options, os.Args[2], apply, verify, os.Args[1] == "hysteria-launcher-failure-lab")
+	case "reference-hysteria-apply", "reference-hysteria-verify", "reference-hysteria-launcher":
+		entryAddress := os.Getenv("XRAY_CASCADE_REFERENCE_ENTRY_IP")
+		options, err = referenceOptionsForAddress(os.Getenv("XRAY_CASCADE_REFERENCE_PANEL_URL"), entryAddress)
+		if err != nil {
+			break
+		}
+		options.RollbackAfter = "15m"
+		transport := referenceHysteriaOptions(entryAddress)
+		apply, buildErr := liveupgrade.HysteriaApplyScript(options, transport)
+		if buildErr != nil {
+			err = buildErr
+			break
+		}
+		if os.Args[1] == "reference-hysteria-apply" {
+			script = apply
+			break
+		}
+		verify, buildErr := liveupgrade.HysteriaVerifyScript(options, liveupgrade.HysteriaVerifyOptions{
+			Transport: transport, SubscriptionPort: 2096,
+			ExpectedExitIPv4: os.Getenv("XRAY_CASCADE_REFERENCE_EXIT_IPV4"),
+			ExpectedExitIPv6: os.Getenv("XRAY_CASCADE_REFERENCE_EXIT_IPV6"),
+		})
+		if buildErr != nil {
+			err = buildErr
+			break
+		}
+		if os.Args[1] == "reference-hysteria-verify" {
+			script = verify
+			break
+		}
+		if len(os.Args) != 3 {
+			err = fmt.Errorf("reference Hysteria launcher requires transaction ID")
+			break
+		}
+		script, err = liveupgrade.LauncherWithApplyScript(options, os.Args[2], apply, verify, false)
 	case "commit":
 		if len(os.Args) != 3 {
 			err = fmt.Errorf("commit requires transaction ID")
@@ -186,11 +250,28 @@ func labXHTTPOptions() liveupgrade.XHTTPOptions {
 	}
 }
 
+func labHysteriaOptions() liveupgrade.HysteriaOptions {
+	return liveupgrade.HysteriaOptions{
+		PrimaryInboundTag: "in-client-entry", InboundTag: "in-client-entry-hysteria2-adopt", Remark: "lab-client-entry-hysteria2-adopt",
+		Port: 10448, EntryAddress: "172.29.10.10", BalancerTag: "cascade-exit",
+		CertificateFile: "/etc/x-ui/subscription.crt", KeyFile: "/etc/x-ui/subscription.key",
+		PinCertificate: true, AllowPrivateEntry: true,
+	}
+}
+
 func referenceXHTTPOptions() liveupgrade.XHTTPOptions {
 	return liveupgrade.XHTTPOptions{
 		PrimaryInboundTag: "in-443-tcp", PrimaryPort: 443,
 		InboundTag: "in-client-xhttp", Remark: "entry-xhttp",
 		Port: 8443, EntryAddress: "203.0.113.10", BalancerTag: "Balancer",
+	}
+}
+
+func referenceHysteriaOptions(entryAddress string) liveupgrade.HysteriaOptions {
+	return liveupgrade.HysteriaOptions{
+		PrimaryInboundTag: "in-443-tcp", InboundTag: "in-client-hysteria2", Remark: "entry-hysteria2",
+		Port: 443, EntryAddress: entryAddress, BalancerTag: "Balancer",
+		CertificateFile: "/root/cert/ip/fullchain.pem", KeyFile: "/root/cert/ip/privkey.pem",
 	}
 }
 
@@ -206,8 +287,12 @@ func sequenceScripts(scripts ...string) string {
 }
 
 func referenceOptions(rawURL string) (liveupgrade.Options, error) {
+	return referenceOptionsForAddress(rawURL, "203.0.113.10")
+}
+
+func referenceOptionsForAddress(rawURL, address string) (liveupgrade.Options, error) {
 	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "203.0.113.10" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != address || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return liveupgrade.Options{}, fmt.Errorf("reference panel URL is missing or unsafe")
 	}
 	port, err := strconv.Atoi(parsed.Port())

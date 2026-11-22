@@ -130,3 +130,29 @@ the subscription, the owner confirmed traffic through the new route and the tran
 Post-commit state has both 443 and 8443 listeners,
 the XHTTP tag in the existing balancer rule, no live-upgrade lock, no active rollback timer and zero
 temporary `xray-cascade-*` API tokens. The NL exit remained unchanged.
+
+## Hysteria 2 adoption
+
+The third additive reference change introduced Hysteria 2 on `443/udp` with the existing trusted
+Let's Encrypt IP certificate. It reuses the primary client's subscription ID but has independent
+random authentication, and only adds its inbound tag to the existing cascade rule. TCP/443,
+XHTTP/8443, interserver IPv4/IPv6, NL runtime, panel settings and UFW were not replaced or enabled.
+
+The isolated lab proved UDP/TLS client → entry → exit E2E and one HAPP subscription. The verifier
+requires the exact endpoint plus nonempty auth, `security=tls`, IP SNI and `alpn=h3`; merely finding a
+`hysteria2://` prefix is not sufficient. A regression also exposed an old certificate pin after the
+lab certificate changed. The controller now recreates only its owned Hysteria inbound when that pin
+does not match the active certificate. A fresh extended deploy and full verify then passed TCP,
+XHTTP, PQ-XHTTP, legacy gRPC, Hysteria 2, IPv4 primary, IPv6 fallback, fail-closed and recovery.
+
+On the reference RU, transaction `c1a473e4d81f70eb5a68648d53de106a` reached server-side E2E but
+rolled back because the original five-minute HAPP confirmation window expired. The Hysteria-specific
+window was raised to 15 minutes. Transaction `fa5c71dd9cbb5281451428d6147faf6e` passed the strengthened
+verifier, was used successfully from HAPP by the owner and was committed. Post-commit checks found
+exactly one Hysteria 2 link, active UDP/443 alongside TCP/443 and TCP/8443, expected NL egress, no lock
+and no active rollback timer. NL remained unchanged.
+
+The live reference also received the same narrow SSH/Fail2ban policy already present in the clean-host
+installer: `MaxAuthTries 3`, `LoginGraceTime 30`, four failures per ten minutes, an initial 30-minute
+ban increasing up to one day. Authentication methods, root login, SSH port and inactive UFW were left
+unchanged. `sshd -t`, `fail2ban-client -t`, a new SSH login and a rollback timer protected the reload.

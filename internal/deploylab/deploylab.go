@@ -644,16 +644,29 @@ hysteria2_port=$(jq -r '.hysteria2Port' /run/xray-cascade-input.json)
 if [ "$hysteria2_port" -gt 0 ]; then
   api_json GET /inbounds/list /run/xray-cascade-inbounds.json
   hysteria2_inbound_remark="${entry_inbound_remark}-hysteria2"
+  cert_file=$(jq -r '.hysteria2CertFile' /run/xray-cascade-input.json)
+  key_file=$(jq -r '.hysteria2KeyFile' /run/xray-cascade-input.json)
+  test -s "$cert_file"
+  test -s "$key_file"
+  if jq -e --arg remark "$hysteria2_inbound_remark" '.obj[]? | select(.remark==$remark)' /run/xray-cascade-inbounds.json >/dev/null; then
+    expected_pin=
+    if [ "$(jq -r '.hysteria2PinCert' /run/xray-cascade-input.json)" = true ]; then
+      expected_pin=$(openssl x509 -in "$cert_file" -outform DER | sha256sum | cut -d' ' -f1)
+      test "${#expected_pin}" -eq 64
+    fi
+    current_pin=$(jq -r --arg remark "$hysteria2_inbound_remark" 'def decoded: if type=="string" then fromjson else . end; .obj[]|select(.remark==$remark)|.streamSettings|decoded|.tlsSettings.settings.pinnedPeerCertSha256[0]//""' /run/xray-cascade-inbounds.json)
+    if [ "$current_pin" != "$expected_pin" ]; then
+      stale_id=$(jq -r --arg remark "$hysteria2_inbound_remark" '.obj[]|select(.remark==$remark)|.id' /run/xray-cascade-inbounds.json)
+      api_json POST "/inbounds/del/$stale_id" /run/xray-cascade-hysteria-delete.json
+      api_json GET /inbounds/list /run/xray-cascade-inbounds.json
+    fi
+  fi
   if ! jq -e --arg remark "$hysteria2_inbound_remark" '.obj[]? | select(.remark==$remark)' /run/xray-cascade-inbounds.json >/dev/null; then
     primary_settings=$(jq -r --arg remark "$entry_inbound_remark" '.obj[]|select(.remark==$remark)|.settings' /run/xray-cascade-inbounds.json)
     primary_sub_id=$(printf '%s' "$primary_settings" | jq -r '.clients[0].subId')
     test -n "$primary_sub_id"
     hysteria_auth=$(openssl rand -hex 24)
     entry_address=$(jq -r '.entryAddress' /run/xray-cascade-input.json)
-    cert_file=$(jq -r '.hysteria2CertFile' /run/xray-cascade-input.json)
-    key_file=$(jq -r '.hysteria2KeyFile' /run/xray-cascade-input.json)
-    test -s "$cert_file"
-    test -s "$key_file"
 	client_tls_settings='{}'
 	if [ "$(jq -r '.hysteria2PinCert' /run/xray-cascade-input.json)" = true ]; then
 	  cert_pin=$(openssl x509 -in "$cert_file" -outform DER | sha256sum | cut -d' ' -f1)
@@ -913,12 +926,12 @@ cleanup() {
   status=$?
   if [ "$primary_blocked" = true ]; then iptables -D OUTPUT -d "$entry_address" -p tcp --dport "$client_port" -j REJECT 2>/dev/null || true; fi
   if [ -n "$client_pid" ]; then kill "$client_pid" 2>/dev/null || true; wait "$client_pid" 2>/dev/null || true; fi
-  rm -f /run/xray-cascade-e2e-*.json /run/xray-cascade-e2e-header /run/xray-cascade-e2e.log \
-    /run/xray-cascade-e2e-sub-headers /run/xray-cascade-e2e-sub-body /run/xray-cascade-e2e-sub-links
   if [ "$status" -ne 0 ]; then
     echo "3XUI_CASCADE_E2E_FAILED stage=$stage" >&2
     if [ -s /run/xray-cascade-e2e.log ]; then sed -n '1,120p' /run/xray-cascade-e2e.log >&2; fi
   fi
+  rm -f /run/xray-cascade-e2e-*.json /run/xray-cascade-e2e-header /run/xray-cascade-e2e.log \
+    /run/xray-cascade-e2e-sub-headers /run/xray-cascade-e2e-sub-body /run/xray-cascade-e2e-sub-links
   exit "$status"
 }
 

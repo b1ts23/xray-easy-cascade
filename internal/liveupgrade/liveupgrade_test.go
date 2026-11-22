@@ -146,6 +146,22 @@ func TestManualConfirmationLeavesWatchdogArmedUntilCommit(t *testing.T) {
 	}
 }
 
+func TestLauncherSupportsValidatedRollbackDeadline(t *testing.T) {
+	options := testOptions()
+	options.RollbackAfter = "15m"
+	script, err := LauncherScript(options, strings.Repeat("d", 32), "set -eu\ntrue\n", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(script, `--on-active=15m`) {
+		t.Fatal("custom rollback deadline missing")
+	}
+	options.RollbackAfter = "15m; reboot"
+	if _, err := LauncherScript(options, strings.Repeat("d", 32), "set -eu\ntrue\n", false); err == nil {
+		t.Fatal("unsafe rollback deadline accepted")
+	}
+}
+
 func decodeEmbeddedScripts(t *testing.T, script string) []string {
 	t.Helper()
 	var decoded []string
