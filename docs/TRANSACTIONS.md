@@ -58,4 +58,5 @@ watchdog остаётся взведённым. Без явного подтве
 - репетиция после потери всего independent public VPS;
 - повторение full systemd/UFW activation и rollback на двух independent public VPS.
 
-Поэтому production `deploy`, `backup`, `restore` и `rollback` пока остаются fail-closed.
+Production `install`/`deploy` подключены к этому coordinator. Отдельные production-команды
+`backup`, `restore` и ручной `rollback` пока остаются fail-closed.

@@ -61,8 +61,8 @@ container 21.11.2026.
 `user6.rules` и `/etc/default/ufw`, добавляет только rules с comments `xray-cascade:*`, включает UFW
 только после SSH allow rule и восстанавливает snapshot при любой ошибке. `ufw reset`,
 `ufw delete` и прямая очистка iptables запрещены тестами. Entry и exit UFW activation, snapshot и
-full restore прошли в отдельном network namespace одноразового container. Script входит во
-внутренний фиксированный bootstrap-порядок, но публичная production-команда по-прежнему fail-closed.
+full restore прошли в отдельном network namespace одноразового container. Script входит в
+фиксированный bootstrap-порядок публичных `vpnctl install`/`deploy`.
 
 ## Production runtime controller
 

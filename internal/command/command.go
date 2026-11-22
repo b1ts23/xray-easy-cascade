@@ -65,6 +65,8 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) error {
 		return nil
 	case "init":
 		return runInit(args[1:], in, out, errOut)
+	case "install":
+		return runInstall(args[1:], in, out, errOut)
 	case "plan":
 		return runPlan(args[1:], out, errOut)
 	case "preflight":
@@ -100,9 +102,11 @@ func printHelp(out io.Writer) {
 	fmt.Fprintln(out, `vpnctl — two-node Xray cascade controller (design preview)
 
 Usage:
+  vpnctl install [--work-dir DIR] [--profile base|extended]
   vpnctl init [--output inventory.yml] [--force]
   vpnctl plan [--inventory inventory.yml]
   vpnctl preflight [--inventory inventory.yml] [--known-hosts PATH] [--proxy-jump TARGET] [--lab] [--json]
+  vpnctl deploy --inventory inventory.yml --known-hosts PATH [--yes]
   vpnctl deploy --lab --inventory lab/inventory.example.yml --known-hosts PATH --proxy-jump TARGET [--yes]
   vpnctl rollback --lab --inventory lab/inventory.example.yml --known-hosts PATH --proxy-jump TARGET [--yes]
   vpnctl backup-keygen --output PATH
@@ -115,8 +119,8 @@ Usage:
   vpnctl access [--inventory inventory.yml] [--file PATH]
   vpnctl version
 
-Production deploy, backup, restore, rollback, update and uninstall remain fail-closed.
-Status and verify currently require --lab. Panel is a loopback-only SSH tunnel.`)
+Install is the guided two-VPS workflow. Backup, restore, rollback, update and uninstall
+remain lab-only or fail-closed. Panel is a loopback-only SSH tunnel.`)
 }
 
 func runAccess(args []string, out, errOut io.Writer) error {
@@ -798,7 +802,7 @@ func runDeploy(args []string, in io.Reader, out, errOut io.Writer) (retErr error
 		return errors.New("deploy accepts no positional arguments")
 	}
 	if !*labMode {
-		return fmt.Errorf("production deploy: %w", ErrNotImplemented)
+		return runProductionDeploy(*inventoryPath, *knownHosts, *proxyJump, *yes, in, out, errOut)
 	}
 
 	inv, err := inventory.Load(*inventoryPath)

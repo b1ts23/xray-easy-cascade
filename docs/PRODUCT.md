@@ -46,8 +46,8 @@ cleanup trap; production-вариант такого теста требует �
 
 Промежуточный этап 20.11.2026: `vpnctl deploy --lab` неоднократно прошёл полный цикл на
 изолированных 3x-ui-контейнерах. Доказаны bootstrap pin → mTLS с удалением token,
-automatic rollback, encrypted off-host backup и transactional restore. Production остаётся fail-closed
-до trusted subscription TLS, real systemd/UFW activation и повтора на public VPS.
+automatic rollback, encrypted off-host backup и transactional restore. Guided production install
+использует trusted IP TLS и выполняет public-edge E2E до двухузлового commit.
 
 Lab rollback теперь также доказан: перед каждой мутацией сохраняются обе БД и управляемые geo-assets,
 commit выполняется только после E2E, а намеренно вызванный сбой автоматически восстановил оба узла.

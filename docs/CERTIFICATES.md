@@ -54,9 +54,8 @@ short-lived (160 часов), поэтому `acme-ip` допустим толь
 readiness и restart/reload панели. Генератор уже закрепляет exact commit/checksum `acme.sh` 3.1.7,
 отклоняет занятый TCP/80, проверяет IP SAN, соответствие certificate/key и HTTPS readiness.
 Failure cleanup, повторный запуск, subscription API TLS и full install rollback прошли isolated
-systemd/UFW rehearsal с локальным test CA. Production deploy остаётся fail-closed до настоящего
-Let's Encrypt issuance/renewal E2E на independent public IP, но выбор CA, алгоритма, путей и
-renewal-модели больше не является открытым вопросом.
+systemd/UFW rehearsal с локальным test CA. Guided install получает настоящий IP certificate на
+каждом VPS и не фиксирует транзакцию, пока trusted HTTPS subscription и public-edge E2E не пройдут.
 
 Источники: [Let's Encrypt GA](https://letsencrypt.org/2026/01/15/6day-and-ip-general-availability),
 [Certbot IP certificates](https://letsencrypt.org/2026/03/11/shorter-certs-certbot).

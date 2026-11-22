@@ -42,6 +42,6 @@ encrypted backups or screenshots containing panel details.
 
 ## Promotion rule
 
-One successful report is evidence, not an automatic release. Maintainers must review rollback,
-secret-redaction and fail-closed evidence before enabling any production mutation command. Preview
-tags remain GitHub pre-releases until that review is complete.
+One successful report is evidence, not proof for every provider. The installer itself therefore
+runs public-edge TCP/XHTTP, expected exit-IP and HAPP subscription E2E before every commit and
+rolls both roles back on failure. Reports remain useful for expanding the provider compatibility matrix.

@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/b1ts23/xray-easy-cascade/internal/access"
 	"github.com/b1ts23/xray-easy-cascade/internal/inventory"
 	"github.com/b1ts23/xray-easy-cascade/internal/production"
 )
@@ -16,13 +17,13 @@ import (
 // DeployFreshHosts composes the already fail-closed host bootstrap and runtime
 // transaction. It is intentionally not wired to the public CLI until the same
 // path passes real ACME and cascade E2E on two independent public IPs.
-func DeployFreshHosts(ctx context.Context, runner Runner, inv inventory.Inventory, happDeeplink, happSHA string, out io.Writer) (retErr error) {
+func DeployFreshHosts(ctx context.Context, runner Runner, inv inventory.Inventory, happDeeplink, happSHA string, out io.Writer) (summary access.Summary, retErr error) {
 	resolved, err := ResolveProductionNetwork(ctx, runner, inv)
 	if err != nil {
-		return err
+		return access.Summary{}, err
 	}
 	if err := BootstrapHosts(ctx, runner, resolved, out); err != nil {
-		return err
+		return access.Summary{}, err
 	}
 	bootstrapOwned := true
 	defer func() {
@@ -52,9 +53,13 @@ func DeployFreshHosts(ctx context.Context, runner Runner, inv inventory.Inventor
 		}
 	}()
 	if err := ConfigureRuntime(ctx, runner, resolved, happDeeplink, happSHA, out); err != nil {
-		return err
+		return access.Summary{}, err
+	}
+	summary, err = CollectAccess(ctx, runner, resolved)
+	if err != nil {
+		return access.Summary{}, err
 	}
 	bootstrapOwned = false
 	fmt.Fprintln(out, "3XUI_PRODUCTION_DEPLOY_READY")
-	return nil
+	return summary, nil
 }

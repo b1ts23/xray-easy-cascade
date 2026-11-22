@@ -271,6 +271,12 @@ func ConfigureRuntime(ctx context.Context, runner Runner, inv inventory.Inventor
 	if _, err = run(work.Exit, "verify production exit runtime", productionExitVerifyScript(work.Panel.Port), "3XUI_PRODUCTION_EXIT_CONFIG_READY"); err != nil {
 		return err
 	}
+	// Do not commit either database until a real client launched on the exit
+	// host has crossed the public entry edge, reached the expected exit IP and
+	// fetched the HAPP subscription with the pinned routing header.
+	if err = VerifyProduction(ctx, runner, work, happSHA, out); err != nil {
+		return err
+	}
 	for _, node := range nodes {
 		script, buildErr := transaction.CommitScript(work.Cluster.Name, node.role, txID, node.endpoint)
 		if buildErr != nil {

@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -62,10 +64,25 @@ func (f *runtimeFakeRunner) Run(_ context.Context, target remote.Target, script 
 		kind, output = "entry-runtime", "3XUI_ENTRY_CONFIG_READY"
 	case strings.Contains(script, "3XUI_PRODUCTION_EXIT_CONFIG_READY"):
 		kind, output = "exit-verify", "3XUI_PRODUCTION_EXIT_CONFIG_READY"
+	case strings.Contains(script, "3XUI_PRODUCTION_VERIFY_BUNDLE"):
+		kind = "verify-bundle"
+		bundle, _ := json.Marshal(map[string]any{"tcp": map[string]any{"settings": map[string]any{"clients": []map[string]any{{"id": "id", "subId": "sub"}}}, "stream": map[string]any{}}, "subPath": "/sub/", "subId": "sub"})
+		output = verifyBundlePrefix + base64.StdEncoding.EncodeToString(bundle)
+	case strings.Contains(script, "3XUI_PRODUCTION_E2E_READY"):
+		kind, output = "production-e2e", "3XUI_PRODUCTION_TCP_E2E_READY\n3XUI_PRODUCTION_SUBSCRIPTION_E2E_READY\n3XUI_PRODUCTION_E2E_READY"
 	case strings.Contains(script, "3XUI_TRANSACTION_COMMITTED"):
 		kind, output = "commit", "3XUI_TRANSACTION_COMMITTED role="+role
 	case strings.Contains(script, "3XUI_TRANSACTION_ROLLED_BACK"):
 		kind, output = "rollback", "3XUI_TRANSACTION_ROLLED_BACK role="+role
+	case strings.Contains(script, "3XUI_PRODUCTION_HANDOFF"):
+		kind = "handoff"
+		document := map[string]string{"username": role + "-user", "password": role + "-password"}
+		if role == "entry" {
+			document["subPath"] = "/sub/"
+			document["subId"] = "client"
+		}
+		raw, _ := json.Marshal(document)
+		output = handoffPrefix + base64.StdEncoding.EncodeToString(raw)
 	}
 	call := role + ":" + kind
 	f.calls = append(f.calls, call)
@@ -164,7 +181,7 @@ func TestConfigureRuntimeCommitsBothNodes(t *testing.T) {
 	if err := ConfigureRuntime(context.Background(), runner, productionRuntimeInventory(), profile, checksum, &out); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"exit:snapshot", "entry:snapshot", "exit:token", "entry:entry-runtime", "exit:exit-verify", "exit:commit", "entry:commit"}
+	want := []string{"exit:snapshot", "entry:snapshot", "exit:token", "entry:entry-runtime", "exit:exit-verify", "entry:verify-bundle", "exit:production-e2e", "exit:commit", "entry:commit"}
 	if strings.Join(runner.calls, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("unexpected production runtime order:\n%s", strings.Join(runner.calls, "\n"))
 	}
@@ -186,10 +203,56 @@ func TestConfigureRuntimeRollsBackBothNodes(t *testing.T) {
 	}
 }
 
+func TestConfigureRuntimeRollsBackAfterPartialCommit(t *testing.T) {
+	runner := &runtimeFakeRunner{failAt: "entry:commit"}
+	profile, checksum := testHappProfile()
+	err := ConfigureRuntime(context.Background(), runner, productionRuntimeInventory(), profile, checksum, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "commit entry runtime") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got := strings.Join(runner.calls, "\n")
+	if !strings.HasSuffix(got, "exit:commit\nentry:commit\nentry:rollback\nexit:rollback") {
+		t.Fatalf("partial commit did not roll back both nodes:\n%s", got)
+	}
+}
+
+func TestProductionVerificationAndHandoffScriptsHaveValidShell(t *testing.T) {
+	inv := productionRuntimeInventory()
+	bundle := base64.StdEncoding.EncodeToString([]byte(`{"tcp":{"settings":{"clients":[{"id":"id","subId":"sub"}]},"stream":{}},"subPath":"/sub/","subId":"sub"}`))
+	e2e, err := productionE2EScript(inv, strings.Repeat("a", 64), bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, script := range map[string]string{
+		"bundle":        verificationBundleScript(inv),
+		"e2e":           e2e,
+		"entry-handoff": handoffScript("entry", inv.Panel.Port),
+		"exit-handoff":  handoffScript("exit", inv.Panel.Port),
+	} {
+		cmd := exec.Command("sh", "-n")
+		cmd.Stdin = strings.NewReader(script)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%s shell syntax: %v: %s", name, err, output)
+		}
+	}
+}
+
+func TestDeployFreshHostsReturnsOperatorHandoff(t *testing.T) {
+	runner := &runtimeFakeRunner{}
+	profile, checksum := testHappProfile()
+	summary, err := DeployFreshHosts(context.Background(), runner, productionRuntimeInventory(), profile, checksum, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Entry.Username != "entry-user" || summary.Exit.Username != "exit-user" || !strings.Contains(summary.HappSubscription, "/sub/client") {
+		t.Fatalf("unexpected handoff: %#v", summary)
+	}
+}
+
 func TestDeployFreshHostsRemovesBothInstallsAfterRuntimeFailure(t *testing.T) {
 	runner := &runtimeFakeRunner{failAt: "entry:entry-runtime"}
 	profile, checksum := testHappProfile()
-	err := DeployFreshHosts(context.Background(), runner, productionRuntimeInventory(), profile, checksum, &bytes.Buffer{})
+	_, err := DeployFreshHosts(context.Background(), runner, productionRuntimeInventory(), profile, checksum, &bytes.Buffer{})
 	if err == nil {
 		t.Fatal("expected runtime failure")
 	}

@@ -14,9 +14,9 @@ import (
 	"github.com/b1ts23/xray-easy-cascade/internal/inventory"
 )
 
-func TestDeployIsDisabled(t *testing.T) {
+func TestDeployRequiresInventory(t *testing.T) {
 	err := Run([]string{"deploy"}, strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{})
-	if !errors.Is(err, ErrNotImplemented) || ExitCode(err) != 2 {
+	if err == nil || !strings.Contains(err.Error(), "read inventory") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
