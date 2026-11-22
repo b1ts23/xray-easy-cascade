@@ -114,7 +114,7 @@ func CollectAccess(ctx context.Context, runner Runner, inv inventory.Inventory) 
 	summary := access.Summary{
 		Cluster: inv.Cluster.Name,
 		Entry: access.Panel{Role: "entry", Username: entry.Username, Password: entry.Password, Port: inv.Panel.Port,
-			WebBasePath: "/entry/panel/", AccessURL: "http://127.0.0.1:12053/entry/panel/",
+			WebBasePath: "/entry/panel/", AccessURL: "https://127.0.0.1:12053/entry/panel/",
 			OpenCommand: "vpnctl panel entry --inventory inventory.yml"},
 		Exit: access.Panel{Role: "exit", Username: exit.Username, Password: exit.Password, Port: inv.Panel.Port,
 			WebBasePath: "/exit/panel/", AccessURL: "https://127.0.0.1:12054/exit/panel/",
