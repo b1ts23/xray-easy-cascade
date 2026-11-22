@@ -1,8 +1,8 @@
-# Xray Cascade
+# Xray Easy Cascade
 
 > **Статус: lab-tested Design Preview. Production-мутации отключены и fail-closed. Не используйте текущую версию для изменения рабочих VPN-серверов.**
 
-Xray Cascade — открытый установщик двухузлового VPN:
+Xray Easy Cascade — открытый установщик двухузлового VPN на 3x-ui, VLESS и REALITY:
 
 ```text
 клиент → entry → exit → интернет

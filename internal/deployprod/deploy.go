@@ -9,8 +9,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/b1ts23/xray-cascade/internal/inventory"
-	"github.com/b1ts23/xray-cascade/internal/production"
+	"github.com/b1ts23/xray-easy-cascade/internal/inventory"
+	"github.com/b1ts23/xray-easy-cascade/internal/production"
 )
 
 // DeployFreshHosts composes the already fail-closed host bootstrap and runtime

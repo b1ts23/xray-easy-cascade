@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/b1ts23/xray-cascade/internal/deploylab"
-	"github.com/b1ts23/xray-cascade/internal/inventory"
-	"github.com/b1ts23/xray-cascade/internal/liveupgrade"
+	"github.com/b1ts23/xray-easy-cascade/internal/deploylab"
+	"github.com/b1ts23/xray-easy-cascade/internal/inventory"
+	"github.com/b1ts23/xray-easy-cascade/internal/liveupgrade"
 )
 
 func main() {

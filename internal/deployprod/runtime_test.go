@@ -12,10 +12,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/b1ts23/xray-cascade/internal/deploylab"
-	"github.com/b1ts23/xray-cascade/internal/inventory"
-	"github.com/b1ts23/xray-cascade/internal/production"
-	"github.com/b1ts23/xray-cascade/internal/remote"
+	"github.com/b1ts23/xray-easy-cascade/internal/deploylab"
+	"github.com/b1ts23/xray-easy-cascade/internal/inventory"
+	"github.com/b1ts23/xray-easy-cascade/internal/production"
+	"github.com/b1ts23/xray-easy-cascade/internal/remote"
 )
 
 type runtimeFakeRunner struct {

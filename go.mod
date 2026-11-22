@@ -1,4 +1,4 @@
-module github.com/b1ts23/xray-cascade
+module github.com/b1ts23/xray-easy-cascade
 
 go 1.25.0
 

@@ -16,8 +16,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/b1ts23/xray-cascade/internal/inventory"
-	"github.com/b1ts23/xray-cascade/internal/routing"
+	"github.com/b1ts23/xray-easy-cascade/internal/inventory"
+	"github.com/b1ts23/xray-easy-cascade/internal/routing"
 )
 
 const (

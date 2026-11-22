@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/b1ts23/xray-cascade/internal/backup"
+	"github.com/b1ts23/xray-easy-cascade/internal/backup"
 )
 
 type node struct {

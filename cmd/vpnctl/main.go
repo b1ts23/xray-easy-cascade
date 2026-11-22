@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/b1ts23/xray-cascade/internal/command"
+	"github.com/b1ts23/xray-easy-cascade/internal/command"
 )
 
 func main() {
