@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Reject credential and runtime files
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden=$(git ls-files | grep -E '(^|/)(inventory\.yml|xray-cascade-access\.txt)$|(^|/)\.cascade/|(^|/)lab/\.state/|\.(pem|key|env)$' || true)
+          if [ -n "$forbidden" ]; then
+            echo "Forbidden credential or runtime files are tracked:"
+            echo "$forbidden"
+            exit 1
+          fi
+          if git grep -IlE 'BEGIN (OPENSSH |RSA |EC |DSA )?PRIVATE KEY' -- .; then
+            echo "Private key material detected"
+            exit 1
+          fi
+      - name: Verify modules
+        run: go mod verify
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+      - name: Test
+        run: go test ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Build
+        run: go build -trimpath -o bin/vpnctl ./cmd/vpnctl
+      - name: Confirm production mutations are disabled
+        run: |
+          for command in deploy backup restore rollback status verify; do
+            set +e
+            ./bin/vpnctl "$command"
+            code=$?
+            set -e
+            test "$code" -eq 2
+          done

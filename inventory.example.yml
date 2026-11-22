@@ -1,0 +1,65 @@
+schema: 1
+
+cluster:
+  name: my-cascade
+  routing_profile: roscomvpn-default
+
+entry:
+  host: 203.0.113.10
+  cascade_address: ""
+  ssh_user: root
+  ssh_port: 22
+  ssh_identity_file: ~/.ssh/id_ed25519
+  public_ipv6: auto
+
+exit:
+  host: 198.51.100.20
+  cascade_address: ""
+  ssh_user: root
+  ssh_port: 22
+  ssh_identity_file: ~/.ssh/id_ed25519
+  public_ipv6: auto
+
+panel:
+  access: ssh-tunnel
+  public_domain: ""
+  port: 2053
+
+subscription:
+  public_domain: ""
+  happ_routing: roscomvpn-default
+  port: 2096
+
+certificates:
+  node_transport: mtls
+  panel_tls: disabled
+  # Proven on the reference RU/NL cascade: one Let's Encrypt IP certificate
+  # per VPS, automatically renewed by the 3x-ui acme.sh flow.
+  subscription_tls: acme-ip
+  panel_cert_file: ""
+  panel_key_file: ""
+  subscription_cert_file: ""
+  subscription_key_file: ""
+
+transport:
+  client: reality-vision-tcp
+  client_port: 443
+  # Optional client-facing fallbacks in the same HAPP subscription. They use
+  # separate ports; the installer opens only the ports declared here.
+  client_alternatives:
+    - kind: reality-xhttp
+      port: 8443
+  # Research-only field. Released inventory rejects enabled Hysteria 2.
+  hysteria2:
+    enabled: false
+    port: 443
+  interserver: reality-vision-tcp
+  interserver_port: 443
+  prefer_interserver: ipv4
+  ipv6_fallback: auto
+  client_reality:
+    target: example.com:443
+    server_name: example.com
+  interserver_reality:
+    target: example.net:443
+    server_name: example.net

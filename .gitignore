@@ -1,0 +1,17 @@
+.DS_Store
+.idea/
+.vscode/
+
+# Local operator state and credentials
+inventory.yml
+.cascade/
+*.key
+*.pem
+*.env
+
+# Build and test artifacts
+bin/
+dist/
+coverage/
+tmp/
+lab/.state/

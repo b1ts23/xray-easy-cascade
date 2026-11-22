@@ -1,0 +1,72 @@
+name: xray-cascade-lab
+
+x-node: &node
+  build:
+    context: ./node
+  restart: unless-stopped
+  mem_limit: 384m
+  cpus: 0.50
+  pids_limit: 128
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /run:size=16m,mode=755
+    - /tmp:size=64m,mode=1777
+  networks:
+    lab:
+
+services:
+  entry:
+    <<: *node
+    cap_add:
+      - NET_ADMIN
+    hostname: cascade-entry
+    ports:
+      - 127.0.0.1:2201:22
+      - 127.0.0.1:20531:2053
+    environment:
+      XUI_INIT_WEB_BASE_PATH: /entry/
+      XUI_LAB_ROLE: entry
+      XUI_LAB_TLS_IP: 172.29.10.10
+    volumes:
+      - ./.state/id_ed25519.pub:/run/secrets/authorized_keys:ro
+      - entry_ssh:/etc/ssh
+      - entry_xui:/etc/x-ui
+    networks:
+      lab:
+        ipv4_address: 172.29.10.10
+        ipv6_address: fd29:10::10
+
+  exit:
+    <<: *node
+    hostname: cascade-exit
+    ports:
+      - 127.0.0.1:2202:22
+      - 127.0.0.1:20532:2053
+    environment:
+      XUI_INIT_WEB_BASE_PATH: /exit/
+      XUI_LAB_ROLE: exit
+      XUI_LAB_TLS_IP: 172.29.10.11
+    volumes:
+      - ./.state/id_ed25519.pub:/run/secrets/authorized_keys:ro
+      - exit_ssh:/etc/ssh
+      - exit_xui:/etc/x-ui
+    networks:
+      lab:
+        ipv4_address: 172.29.10.11
+        ipv6_address: fd29:10::11
+
+networks:
+  lab:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: 172.29.10.0/24
+        - subnet: fd29:10::/64
+
+volumes:
+  entry_ssh:
+  exit_ssh:
+  entry_xui:
+  exit_xui:

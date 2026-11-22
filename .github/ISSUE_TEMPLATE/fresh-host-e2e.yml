@@ -1,0 +1,55 @@
+name: Fresh-host E2E report
+description: Submit a redacted result from two disposable clean VPS instances
+title: "[fresh-host-e2e]: "
+labels:
+  - validation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read `docs/FRESH-HOST-E2E.md` first. Never include IP addresses, hostnames, inventory, URLs, credentials, keys, certificates, fingerprints, subscription data, QR codes, databases or raw logs.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I used two disposable clean VPS instances, not an existing VPN or shared server.
+          required: true
+        - label: I manually redacted all identifying and credential material.
+          required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Tested commit
+      placeholder: Full Git commit SHA
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      placeholder: vpnctl, 3x-ui, Xray, Ubuntu
+    validations:
+      required: true
+  - type: dropdown
+    id: ipv6
+    attributes:
+      label: IPv6 fallback coverage
+      options:
+        - Passed with global IPv6
+        - Not available from providers
+        - Failed
+    validations:
+      required: true
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Redacted acceptance results
+      description: Copy the numbered checklist and mark each item pass, fail or not applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Redacted notes
+      description: Do not paste raw logs. Summarize failures after replacing all identifiers with role labels.

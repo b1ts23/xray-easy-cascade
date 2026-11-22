@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+
+unit=
+delayed=false
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --quiet|--collect) shift ;;
+    --unit) unit=$2; shift 2 ;;
+    --on-active=*) delayed=true; shift ;;
+    --*) echo "unsupported fake systemd-run option: $1" >&2; exit 2 ;;
+    *) break ;;
+  esac
+done
+test -n "$unit"
+test "$#" -ge 1
+state=/run/xray-cascade-fake-systemd
+mkdir -p "$state"
+if [ "$delayed" = true ]; then
+  (sleep "${FAKE_SYSTEMD_DELAY_SECONDS:-30}"; exec "$@") >"$state/$unit.log" 2>&1 &
+else
+  (exec "$@") >"$state/$unit.log" 2>&1 &
+fi
+printf '%s\n' "$!" > "$state/$unit.pid"

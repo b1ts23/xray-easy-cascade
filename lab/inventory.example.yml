@@ -1,0 +1,60 @@
+schema: 1
+
+cluster:
+  name: container-lab
+  routing_profile: roscomvpn-default
+
+entry:
+  host: 127.0.0.1
+  cascade_address: 172.29.10.10
+  ssh_user: root
+  ssh_port: 2201
+  ssh_identity_file: lab/.state/id_ed25519
+  public_ipv6: fd29:10::10
+
+exit:
+  host: 127.0.0.1
+  cascade_address: 172.29.10.11
+  ssh_user: root
+  ssh_port: 2202
+  ssh_identity_file: lab/.state/id_ed25519
+  public_ipv6: fd29:10::11
+
+panel:
+  access: ssh-tunnel
+  public_domain: ""
+  port: 2053
+
+subscription:
+  public_domain: ""
+  happ_routing: roscomvpn-default
+  port: 2096
+
+certificates:
+  node_transport: mtls
+  panel_tls: disabled
+  subscription_tls: existing
+  panel_cert_file: ""
+  panel_key_file: ""
+  subscription_cert_file: /etc/x-ui/subscription.crt
+  subscription_key_file: /etc/x-ui/subscription.key
+
+transport:
+  client: reality-vision-tcp
+  client_port: 10443
+  client_alternatives:
+    - kind: reality-xhttp
+      port: 10444
+  hysteria2:
+    enabled: false
+    port: 10443
+  interserver: reality-vision-tcp
+  interserver_port: 11443
+  prefer_interserver: ipv4
+  ipv6_fallback: required
+  client_reality:
+    target: example.com:443
+    server_name: example.com
+  interserver_reality:
+    target: example.net:443
+    server_name: example.net
