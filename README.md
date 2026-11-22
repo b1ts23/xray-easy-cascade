@@ -20,12 +20,15 @@ Xray Easy Cascade — открытый установщик двухузлово
 ```bash
 go run ./cmd/vpnctl version
 go run ./cmd/vpnctl init
+go run ./cmd/vpnctl init --profile extended
 go run ./cmd/vpnctl plan --inventory inventory.yml
 go run ./cmd/vpnctl preflight --inventory inventory.yml --known-hosts ~/.ssh/known_hosts
 ```
 
 `init` атомарно создаёт inventory с правами `0600`, не хранит пароли и VPN-ключи. `plan`
 лишь валидирует YAML локально. `preflight` читает состояние обоих узлов через SSH, не пишет на сервер и требует заранее закреплённые host keys.
+По умолчанию `init` выбирает базовый TCP+XHTTP. `--profile extended` явно добавляет XHTTP+ML-KEM,
+legacy gRPC, Hysteria 2 и скрытый interserver XHTTP; `plan` покажет все дополнительные TCP/UDP-порты до изменений.
 
 `deploy --lab` уже работает: сам выполняет preflight, создаёт transactional snapshots и ownership
 manifest, создаёт scoped bootstrap token, регистрирует node, переводит его на mTLS,
@@ -51,12 +54,12 @@ inbounds, node online/mTLS, отсутствие API-token и HAPP routing. `ver
 снимаются cleanup trap при любом завершении. Обе команды возвращают
 отдельный exit code 4 при degraded/failed проверке.
 
-Финальный стабильный lab-профиль: две официальные 3x-ui `3.11.0` с Xray `26.10.21`,
+Базовый стабильный lab-профиль: две официальные 3x-ui `3.11.0` с Xray `26.10.21`,
 entry регистрирует exit как `online` remote node, а клиент получает TCP + Vision и XHTTP
-одной HAPP-подпиской. Скрытый hop entry → exit идёт по TCP + REALITY через IPv4/IPv6.
-Оба клиентских транспорта проходят HTTPS E2E. ML-KEM, gRPC, Hysteria 2 и межсерверный XHTTP
-не входят в released profile: gRPC deprecated самим Xray, а остальные варианты требуют
-отдельного стабильного regression gate. Xray `config.json` напрямую не редактируется.
+одной HAPP-подпиской. Расширенный opt-in профиль добавляет XHTTP+ML-KEM, legacy gRPC,
+Hysteria 2 и скрытый межсерверный XHTTP. Все пять клиентских вариантов прошли
+HTTPS E2E и одну HAPP-подписку в текущем lab; они допускаются строгим inventory. gRPC не является
+default: Xray печатает deprecation warning и рекомендует XHTTP. Xray `config.json` напрямую не редактируется.
 Весь цикл неоднократно прошёл одной командой `vpnctl deploy --lab --yes`.
 Dual-stack ULA fault-injection также доказал автоматический IPv4 → IPv6 переход, отсутствие direct-
 утечки при отказе обоих путей и восстановление. Публичные IPv6 двух провайдеров ещё требуют E2E на VPS.
@@ -123,13 +126,14 @@ go run ./cmd/vpnctl plan --inventory inventory.yml
 
 ## Проектные ограничения MVP
 
-- клиентские входы released profile: VLESS + REALITY через TCP + Vision и XHTTP;
-- межсерверный transport пока VLESS + REALITY + Vision по TCP;
+- базовые клиентские входы: VLESS + REALITY через TCP + Vision и XHTTP;
+- расширенные opt-in входы: XHTTP+ML-KEM, gRPC legacy и Hysteria 2; они не обещают hot failover HAPP;
+- межсерверный primary — VLESS + REALITY + Vision по TCP; XHTTP можно включить как вторичный путь;
 - только двухузловой каскад;
 - 3x-ui 3.11.0, закреплённая по версии и checksum;
 - entry — центральная панель, exit — управляемая node-панель;
 - AmneziaWG/AWG не входит в проект;
-- PQ, gRPC, Hysteria 2, WARP и межсерверный XHTTP остаются исследовательскими модулями и отклоняются released inventory;
+- WARP остаётся отдельным неактивным модулем; AWG исключён;
 - Self-SNI не входит в MVP;
 - XHTTP включается явно через `client_alternatives` и публикуется одной подпиской вместе с TCP;
 - никакого применения к существующей инфраструктуре без отдельного подтверждения.

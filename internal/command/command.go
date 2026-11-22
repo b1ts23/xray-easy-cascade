@@ -1168,6 +1168,9 @@ func requiredCleanHostPorts(role string, inv inventory.Inventory) []int {
 		}
 	} else {
 		ports = append(ports, inv.Transport.InterserverPort)
+		for _, alternative := range inv.Transport.InterserverAlternatives {
+			ports = append(ports, alternative.Port)
+		}
 	}
 	return ports
 }
@@ -1177,6 +1180,7 @@ func runInit(args []string, in io.Reader, out, errOut io.Writer) error {
 	flags.SetOutput(errOut)
 	path := flags.String("output", "inventory.yml", "inventory path")
 	force := flags.Bool("force", false, "replace an existing inventory")
+	profile := flags.String("profile", "base", "transport profile: base or extended")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -1190,6 +1194,20 @@ func runInit(args []string, in io.Reader, out, errOut io.Writer) error {
 	}
 
 	inv := inventory.Default()
+	switch strings.ToLower(strings.TrimSpace(*profile)) {
+	case "base":
+		inv.Transport.ClientAlternatives = []inventory.ClientAlternative{{Kind: "reality-xhttp", Port: 8443}}
+	case "extended":
+		inv.Transport.ClientAlternatives = []inventory.ClientAlternative{
+			{Kind: "reality-xhttp", Port: 8443},
+			{Kind: "reality-xhttp-pq", Port: 10443},
+			{Kind: "reality-grpc", Port: 9443},
+		}
+		inv.Transport.Hysteria2 = inventory.Hysteria2{Enabled: true, Port: 443}
+		inv.Transport.InterserverAlternatives = []inventory.InterserverAlternative{{Kind: "reality-xhttp", Port: 8443}}
+	default:
+		return errors.New("init --profile must be base or extended")
+	}
 	reader := bufio.NewReader(in)
 	var err error
 	if inv.Cluster.Name, err = prompt(reader, out, "Cluster name", inv.Cluster.Name); err != nil {
@@ -1222,6 +1240,7 @@ func runInit(args []string, in io.Reader, out, errOut io.Writer) error {
 		return err
 	}
 	fmt.Fprintf(out, "\nCreated %s with mode 0600. No passwords or VPN keys were stored.\n", *path)
+	fmt.Fprintf(out, "Transport profile: %s.\n", strings.ToLower(strings.TrimSpace(*profile)))
 	fmt.Fprintln(out, "Next: vpnctl plan --inventory", *path)
 	return nil
 }

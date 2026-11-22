@@ -68,12 +68,26 @@ func BuildPlan(inv inventory.Inventory) (Plan, error) {
 			{Node: "exit", Source: entryIPv4.String(), Port: inv.Panel.Port, Purpose: "entry-to-node-api"},
 		},
 	}
+	for _, alternative := range inv.Transport.InterserverAlternatives {
+		purpose := "entry-to-exit-" + strings.TrimPrefix(alternative.Kind, "reality-")
+		plan.Firewall = append(plan.Firewall, FirewallRule{Node: "exit", Source: entryIPv4.String(), Port: alternative.Port, Purpose: purpose})
+	}
 	for _, alternative := range inv.Transport.ClientAlternatives {
 		purpose := "client-" + strings.TrimPrefix(alternative.Kind, "reality-") + "-reality"
 		plan.Firewall = append(plan.Firewall, FirewallRule{Node: "entry", Source: "any", Port: alternative.Port, Purpose: purpose})
+		switch alternative.Kind {
+		case "reality-grpc":
+			plan.Deferred = append(plan.Deferred, "gRPC is a legacy compatibility route; Xray recommends XHTTP for new deployments")
+		case "reality-xhttp-pq":
+			plan.Deferred = append(plan.Deferred, "PQ XHTTP requires compatible current Xray and HAPP clients")
+		}
 	}
 	if inv.Transport.Hysteria2.Enabled {
 		plan.Firewall = append(plan.Firewall, FirewallRule{Node: "entry", Source: "any", Port: inv.Transport.Hysteria2.Port, Protocol: "udp", Purpose: "client-hysteria2-tls"})
+		plan.Deferred = append(plan.Deferred, "Hysteria 2 requires UDP reachability and trusted subscription TLS")
+	}
+	if len(inv.Transport.InterserverAlternatives) > 0 {
+		plan.Deferred = append(plan.Deferred, "interserver XHTTP is secondary; TCP/REALITY remains the primary fail-closed path")
 	}
 	if inv.Certificates.SubscriptionTLS == "acme-ip" {
 		// acme.sh standalone validation binds TCP/80 only while issuing or
@@ -93,6 +107,10 @@ func BuildPlan(inv inventory.Inventory) (Plan, error) {
 			FirewallRule{Node: "exit", Source: entryIPv6.String(), Port: inv.Transport.InterserverPort, Purpose: "entry-to-exit-reality-ipv6"},
 			FirewallRule{Node: "exit", Source: entryIPv6.String(), Port: inv.Panel.Port, Purpose: "entry-to-node-api-ipv6"},
 		)
+		for _, alternative := range inv.Transport.InterserverAlternatives {
+			purpose := "entry-to-exit-" + strings.TrimPrefix(alternative.Kind, "reality-") + "-ipv6"
+			plan.Firewall = append(plan.Firewall, FirewallRule{Node: "exit", Source: entryIPv6.String(), Port: alternative.Port, Purpose: purpose})
+		}
 	} else if inv.Entry.PublicIPv6 == "auto" {
 		plan.Deferred = append(plan.Deferred, "resolve entry global IPv6 during preflight before creating exit rules")
 	}
@@ -161,6 +179,7 @@ func BuildInstallSteps(role string, inv inventory.Inventory) ([]InstallStep, err
 		{"candidate", func() (string, error) { return CandidateScript(role) }},
 		{"stage", func() (string, error) { return StageInstallScript(role, inv) }},
 		{"firewall", func() (string, error) { return FirewallScript(role, inv) }},
+		{"ssh-protect", func() (string, error) { return SSHProtectionScript(role, inv) }},
 		{"activate", func() (string, error) { return ActivationScript(role, inv) }},
 		{"acme-ip", func() (string, error) { return ACMEIPScript(role, inv) }},
 	}
@@ -692,6 +711,16 @@ if [ -n "$snapshot" ]; then
   initial=$(cat "$snapshot/initial.state")
   if [ "$initial" = active ]; then ufw reload >/dev/null; elif [ "$initial" = inactive ]; then ufw --force disable >/dev/null; else exit 1; fi
 fi
+if jq -e '.sshProtection.configured==true' "$ownership" >/dev/null 2>&1; then
+  ssh_service=$(jq -r '.sshProtection.sshService' "$ownership")
+  fail2ban_was_active=$(jq -r '.sshProtection.fail2banWasActive' "$ownership")
+  fail2ban_was_enabled=$(jq -r '.sshProtection.fail2banWasEnabled' "$ownership")
+  rm -f /etc/ssh/sshd_config.d/90-xray-cascade.conf /etc/fail2ban/jail.d/xray-cascade-sshd.local
+  sshd -t
+  systemctl reload "$ssh_service"
+  if [ "$fail2ban_was_active" = true ]; then systemctl restart fail2ban; else systemctl stop fail2ban >/dev/null 2>&1 || true; fi
+  if [ "$fail2ban_was_enabled" = true ]; then systemctl enable fail2ban >/dev/null; else systemctl disable fail2ban >/dev/null 2>&1 || true; fi
+fi
 acme_state="$root/acme/$role.json"
 if [ -f "$acme_state" ]; then
   jq -e --arg role "$role" '.schema==1 and .manager=="vpnctl" and .role==$role' "$acme_state" >/dev/null
@@ -722,6 +751,95 @@ rm -f "$ownership"
 systemctl daemon-reload
 echo "3XUI_PRODUCTION_INSTALL_ROLLED_BACK role=$role"
 `, role, StateRoot, XUIVersion, XUIVersion), nil
+}
+
+// SSHProtectionScript adds an ownership-scoped OpenSSH drop-in and Fail2ban
+// jail. It never changes the SSH port or authentication methods, validates the
+// complete sshd configuration before a reload, and records prior service state
+// so install rollback can restore it.
+func SSHProtectionScript(role string, inv inventory.Inventory) (string, error) {
+	if role != "entry" && role != "exit" {
+		return "", errors.New("SSH protection role must be entry or exit")
+	}
+	sshPort := inv.Entry.SSHPort
+	if role == "exit" {
+		sshPort = inv.Exit.SSHPort
+	}
+	if sshPort < 1 || sshPort > 65535 {
+		return "", errors.New("SSH protection requires a valid SSH port")
+	}
+	return fmt.Sprintf(`set -eu
+umask 077
+test "$(id -u)" = 0
+role=%s
+ssh_port=%d
+root=%s
+ownership="$root/ownership.json"
+ssh_dropin=/etc/ssh/sshd_config.d/90-xray-cascade.conf
+jail=/etc/fail2ban/jail.d/xray-cascade-sshd.local
+test -f "$ownership"
+test ! -L "$ownership"
+jq -e --arg role "$role" '.schema==1 and .clusterRole==$role and (.status=="staged" or .status=="active")' "$ownership" >/dev/null
+for command in jq systemctl sshd apt-get; do command -v "$command" >/dev/null; done
+test ! -e "$ssh_dropin"
+test ! -L "$ssh_dropin"
+test ! -e "$jail"
+test ! -L "$jail"
+if systemctl is-active --quiet ssh; then ssh_service=ssh; elif systemctl is-active --quiet sshd; then ssh_service=sshd; else echo 'active OpenSSH service not found' >&2; exit 1; fi
+if systemctl is-active --quiet fail2ban; then f2b_active=true; else f2b_active=false; fi
+if systemctl is-enabled --quiet fail2ban; then f2b_enabled=true; else f2b_enabled=false; fi
+configured=false
+cleanup() {
+  status=$?
+  trap - EXIT INT TERM
+  if [ "$status" -ne 0 ] && [ "$configured" = true ]; then
+    rm -f "$ssh_dropin" "$jail"
+    sshd -t >/dev/null 2>&1 && systemctl reload "$ssh_service" >/dev/null 2>&1 || true
+    if [ "$f2b_active" = true ]; then systemctl restart fail2ban >/dev/null 2>&1 || true; else systemctl stop fail2ban >/dev/null 2>&1 || true; fi
+    if [ "$f2b_enabled" = true ]; then systemctl enable fail2ban >/dev/null 2>&1 || true; else systemctl disable fail2ban >/dev/null 2>&1 || true; fi
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+DEBIAN_FRONTEND=noninteractive apt-get update -qq
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fail2ban
+install -d -m 0755 /etc/ssh/sshd_config.d /etc/fail2ban/jail.d
+cat > "$ssh_dropin" <<'XCASCADE_SSHD'
+# Managed by xray-easy-cascade. Authentication methods and root login are unchanged.
+MaxAuthTries 3
+LoginGraceTime 30
+XCASCADE_SSHD
+cat > "$jail" <<XCASCADE_FAIL2BAN
+# Managed by xray-easy-cascade.
+[sshd]
+enabled = true
+backend = systemd
+port = $ssh_port
+maxretry = 4
+findtime = 10m
+bantime = 30m
+bantime.increment = true
+bantime.maxtime = 1d
+XCASCADE_FAIL2BAN
+chmod 0644 "$ssh_dropin" "$jail"
+configured=true
+sshd -t
+fail2ban-client -t
+jq --arg ssh_service "$ssh_service" --argjson active "$f2b_active" --argjson enabled "$f2b_enabled" '
+  .paths += ["/etc/ssh/sshd_config.d/90-xray-cascade.conf","/etc/fail2ban/jail.d/xray-cascade-sshd.local"]
+  | .paths |= unique
+  | .sshProtection={configured:true,sshService:$ssh_service,fail2banWasActive:$active,fail2banWasEnabled:$enabled}
+' "$ownership" > "$ownership.new"
+chmod 0600 "$ownership.new"
+mv -f "$ownership.new" "$ownership"
+systemctl reload "$ssh_service"
+systemctl enable --now fail2ban
+fail2ban-client reload
+fail2ban-client status sshd >/dev/null
+echo "3XUI_PRODUCTION_SSH_PROTECTION_READY role=$role port=$ssh_port"
+trap - EXIT INT TERM
+`, role, sshPort, StateRoot), nil
 }
 
 // FirewallScript adds only comment-owned UFW rules for one role. It snapshots

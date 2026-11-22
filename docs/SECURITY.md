@@ -21,6 +21,10 @@
 8. Firewall меняется добавлением узких правил, без `ufw reset` и удаления чужих правил.
 9. Uninstall удаляет только пути из подписанного ownership manifest.
 10. Логи и диагностические JSON проходят redaction и не содержат bearer credentials.
+11. SSH-защита не меняет порт, root/password policy или ключи: отдельный ownership-scoped drop-in
+    только снижает `MaxAuthTries`/`LoginGraceTime`, а Fail2ban jail банит повторный brute force.
+12. Перед reload SSH всегда выполняется `sshd -t`; SSH не перезапускается. Прежние
+    active/enabled state Fail2ban записываются в ownership manifest и восстанавливаются rollback.
 
 Lab transaction snapshots имеют режим `0600`, остаются на соответствующем узле, проверяются по
 SHA-256 и восстанавливаются штатным import API 3x-ui. Для потери VPS отдельно реализован
@@ -40,6 +44,7 @@ disaster recovery остаётся fail-closed до public-VPS rehearsal.
 | Блокировка одного адреса exit | наблюдение IPv4/IPv6 и health-aware выбор |
 | Утечка subscription URL | redaction, no-referrer/noindex, rotation |
 | Повторный deploy меняет ключи | идемпотентный state и стабильные identifiers |
+| SSH brute force | Fail2ban sshd jail + валидируемый OpenSSH drop-in |
 
 ## Не обещаем в MVP
 

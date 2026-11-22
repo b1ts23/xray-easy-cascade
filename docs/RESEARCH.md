@@ -62,6 +62,8 @@ API, отсутствующий в Python 3.9. Это не VPS E2E.
 | Механизм | Источник идеи | Решение |
 |---|---|---|
 | Pinning/checksums | Bob, Xrayebator | Обязательно |
+| UFW с сохранением SSH | Bob, Xrayebator | Реализовано: только comment-owned rules, без reset/удаления чужих правил |
+| SSH Fail2ban | Bob, Xrayebator | Реализован ownership-scoped jail + `sshd -t` + reload + rollback |
 | 3x-ui API integration | Bob, official 3x-ui | Обязательно |
 | Multi-node/mTLS | official 3x-ui | Entry master, exit node |
 | Transactional config | Xrayebator | Обязательно |
@@ -74,6 +76,10 @@ API, отсутствующий в Python 3.9. Это не VPS E2E.
 | Electron GUI | Xrayebator | Не брать в MVP |
 | VLESS Encryption ML-KEM | Xrayebator + official Xray/3x-ui | Отдельный opt-in XHTTP inbound; cascade/subscription E2E прошёл 22.11.2026 |
 | WARP | official 3x-ui | Планируемый opt-in outbound на exit; не регистровать Cloudflare device без явного согласия |
+
+Не всё из двух upstream-проектов должно входить в первый release. Управление expiry/traffic limits, Telegram-алерты,
+DNS-01, четыре формата подписки и SNI probe полезны, но это отдельные operator features, а не основа каскада. Self-SNI,
+AWG и автоматическая WARP-регистрация сознательно не переносятся.
 
 ## Что означают «7 маршрутов» Xrayebator
 
@@ -90,10 +96,9 @@ Xrayebator публикует семь клиентских вариантов, 
 | `tcp-utls-firefox` | тот же TCP/Vision inbound; иной client fingerprint | Не создавать дублирующий inbound только ради link-parameter |
 | `tcp-xudp` | тот же TCP/Vision inbound; `packetEncoding=xudp` в link | Планировать как client-link alias после HAPP E2E, а не как новый серверный transport |
 
-Исследовательский lab исторически доказал пять входов, но released acceptance profile на 22.11.2026
-сознательно ограничен TCP/Vision + XHTTP: эти два варианта повторно прошли deploy, subscription,
-client transport fallback и полный cascade failover/fail-closed gate. PQ/Hysteria/межсерверный XHTTP
-не включаются до стабильного regression gate; gRPC deprecated самим Xray.
+Лабораторный controller доказал пять клиентских входов и одну HAPP-подписку. TCP/Vision + XHTTP
+остаются базовым профилем, а XHTTP+ML-KEM, gRPC и Hysteria 2 включаются явно. Межсерверный XHTTP
+также допускается как вторичный скрытый путь. gRPC остаётся legacy: Xray печатает deprecation warning.
 
 ## Дополнительные официальные возможности
 

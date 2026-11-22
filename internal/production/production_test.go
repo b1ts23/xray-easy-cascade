@@ -3,6 +3,7 @@
 package production
 
 import (
+	"fmt"
 	"os/exec"
 	"strings"
 	"testing"
@@ -101,6 +102,56 @@ func TestBuildPlanIncludesHysteria2UDP(t *testing.T) {
 	t.Fatal("missing Hysteria2 UDP firewall rule")
 }
 
+func TestBuildPlanExplainsExtendedProfileCaveats(t *testing.T) {
+	inv := inventory.Default()
+	inv.Entry.Host = "203.0.113.10"
+	inv.Exit.Host = "198.51.100.20"
+	inv.Certificates.SubscriptionTLS = "acme-ip"
+	inv.Transport.ClientAlternatives = []inventory.ClientAlternative{
+		{Kind: "reality-xhttp-pq", Port: 10443},
+		{Kind: "reality-grpc", Port: 9443},
+	}
+	inv.Transport.Hysteria2 = inventory.Hysteria2{Enabled: true, Port: 443}
+	inv.Transport.InterserverAlternatives = []inventory.InterserverAlternative{{Kind: "reality-xhttp", Port: 8443}}
+	plan, err := BuildPlan(inv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(plan.Lines(), "\n")
+	for _, phrase := range []string{"legacy compatibility route", "PQ XHTTP requires", "Hysteria 2 requires", "interserver XHTTP is secondary"} {
+		if !strings.Contains(joined, phrase) {
+			t.Fatalf("plan does not explain %q:\n%s", phrase, joined)
+		}
+	}
+}
+
+func TestBuildPlanRestrictsInterserverXHTTPForIPv4AndIPv6(t *testing.T) {
+	inv := inventory.Default()
+	inv.Entry.Host = "203.0.113.10"
+	inv.Exit.Host = "198.51.100.20"
+	inv.Entry.PublicIPv6 = "2001:db8::10"
+	inv.Transport.InterserverAlternatives = []inventory.InterserverAlternative{{Kind: "reality-xhttp", Port: 8443}}
+	plan, err := BuildPlan(inv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{
+		"203.0.113.10:8443:entry-to-exit-xhttp":      false,
+		"2001:db8::10:8443:entry-to-exit-xhttp-ipv6": false,
+	}
+	for _, rule := range plan.Firewall {
+		key := fmt.Sprintf("%s:%d:%s", rule.Source, rule.Port, rule.Purpose)
+		if _, exists := want[key]; exists {
+			want[key] = true
+		}
+	}
+	for rule, found := range want {
+		if !found {
+			t.Fatalf("missing restricted interserver firewall rule %s: %#v", rule, plan.Firewall)
+		}
+	}
+}
+
 func TestBuildInstallStepsEnforcesSafeOrder(t *testing.T) {
 	inv := inventory.Default()
 	inv.Entry.Host = "203.0.113.10"
@@ -126,10 +177,10 @@ func TestBuildInstallStepsEnforcesSafeOrder(t *testing.T) {
 		}
 		return strings.Join(values, ",")
 	}
-	if got, want := names(entry), "candidate,stage,firewall,activate,acme-ip,subscription-tls"; got != want {
+	if got, want := names(entry), "candidate,stage,firewall,ssh-protect,activate,acme-ip,subscription-tls"; got != want {
 		t.Fatalf("entry order = %s, want %s", got, want)
 	}
-	if got, want := names(exit), "candidate,stage,firewall,activate,acme-ip"; got != want {
+	if got, want := names(exit), "candidate,stage,firewall,ssh-protect,activate,acme-ip"; got != want {
 		t.Fatalf("exit order = %s, want %s", got, want)
 	}
 }
@@ -313,6 +364,9 @@ func TestInstallRollbackRequiresOwnershipAndRestoresFirewall(t *testing.T) {
 		"xray-cascade:acme-renew",
 		"acmeInstalledByProject",
 		"systemctl disable --now x-ui",
+		"sshProtection.configured",
+		"90-xray-cascade.conf",
+		"xray-cascade-sshd.local",
 		"3XUI_PRODUCTION_INSTALL_ROLLED_BACK",
 	} {
 		if !strings.Contains(script, required) {
@@ -328,6 +382,40 @@ func TestInstallRollbackRequiresOwnershipAndRestoresFirewall(t *testing.T) {
 	cmd.Stdin = strings.NewReader(script)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("install rollback script syntax: %v: %s", err, output)
+	}
+}
+
+func TestSSHProtectionScriptIsScopedAndValidated(t *testing.T) {
+	inv := inventory.Default()
+	inv.Entry.SSHPort = 2222
+	script, err := SSHProtectionScript("entry", inv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		"MaxAuthTries 3",
+		"LoginGraceTime 30",
+		"port = $ssh_port",
+		"maxretry = 4",
+		"bantime.maxtime = 1d",
+		"sshd -t",
+		"fail2ban-client -t",
+		"systemctl reload \"$ssh_service\"",
+		"3XUI_PRODUCTION_SSH_PROTECTION_READY",
+	} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("SSH protection script missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"PermitRootLogin", "PasswordAuthentication", "systemctl restart ssh", "ufw reset", "iptables -F"} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("SSH protection script contains unsafe operation %q", forbidden)
+		}
+	}
+	cmd := exec.Command("sh", "-n")
+	cmd.Stdin = strings.NewReader(script)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("SSH protection script syntax: %v: %s", err, output)
 	}
 }
 

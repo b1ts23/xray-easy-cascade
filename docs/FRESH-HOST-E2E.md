@@ -20,8 +20,8 @@ The instances do not have to be in Russia and the Netherlands. They represent ge
 1. Read-only preflight reports both clean hosts ready and identifies every occupied port.
 2. A single deploy installs the pinned 3x-ui release without editing a standalone Xray config.
 3. Entry sees exit as an online mTLS node and the temporary API token is removed.
-4. One HAPP subscription contains released TCP/Vision and XHTTP profiles only.
-5. TCP and XHTTP each complete an HTTPS request through entry and exit.
+4. One HAPP subscription contains every enabled client transport; the base profile is TCP/Vision and XHTTP.
+5. Every enabled client transport completes an HTTPS request through entry and exit.
 6. RoscomVPN block/direct/cascade order matches the documented server-side policy.
 7. IPv4 is primary; if IPv6 is available, a scoped IPv4 failure selects IPv6.
 8. Failure of all interserver paths is fail-closed and never falls back to direct internet access.

@@ -46,6 +46,8 @@ func expectedMarker(step, role string) string {
 		return "3XUI_PRODUCTION_STAGED role=" + role
 	case "firewall":
 		return "3XUI_PRODUCTION_FIREWALL_READY role=" + role
+	case "ssh-protect":
+		return "3XUI_PRODUCTION_SSH_PROTECTION_READY role=" + role
 	case "activate":
 		return "3XUI_PRODUCTION_ACTIVATED role=" + role
 	case "acme-ip":

@@ -54,18 +54,20 @@ commit выполняется только после E2E, а намеренно
 Лабораторный restore покрывает firewall/systemd/certificates; для production нужна проверка
 на реальных хостах и retention policy.
 
-Финальный released gate 22.11.2026 повторно доказал TCP/XHTTP E2E, обе ссылки в одной HAPP-подписке
-и работу XHTTP при scoped блокировке основного TCP-порта. Исследовательские PQ/gRPC/Hysteria не входят в default. Автовыбор HAPP
-при подключении и hot failover активной сессии — разные acceptance tests; второй пока не обещается.
+Базовый gate 22.11.2026 повторно доказал TCP/XHTTP E2E, обе ссылки в одной HAPP-подписке
+и работу XHTTP при scoped блокировке основного TCP-порта. Расширенный opt-in профиль добавляет
+XHTTP+ML-KEM, gRPC legacy, Hysteria 2 и межсерверный XHTTP. Автовыбор HAPP при подключении и hot failover
+активной сесии — разные acceptance tests; второй пока не обещается.
 
 ## Installation UX
 
 ```text
-vpnctl init
+vpnctl init [--profile base|extended]
   → адрес и SSH-доступ к entry
   → адрес и SSH-доступ к exit
   → режим панели и подписки
   → inventory.yml без паролей и VPN-ключей
+  → base: TCP/Vision + XHTTP; extended: + ML-KEM, gRPC legacy, Hysteria 2, interserver XHTTP
 
 vpnctl plan
   → строгая локальная валидация inventory

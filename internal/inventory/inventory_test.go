@@ -146,7 +146,7 @@ func TestClientAlternativesAreValidated(t *testing.T) {
 	inv := Default()
 	inv.Entry.Host = "203.0.113.10"
 	inv.Exit.Host = "198.51.100.20"
-	inv.Transport.ClientAlternatives = []ClientAlternative{{Kind: "reality-xhttp", Port: 8443}}
+	inv.Transport.ClientAlternatives = []ClientAlternative{{Kind: "reality-xhttp", Port: 8443}, {Kind: "reality-xhttp-pq", Port: 8444}, {Kind: "reality-grpc", Port: 8445}}
 	if err := inv.Validate(); err != nil {
 		t.Fatalf("valid XHTTP alternative rejected: %v", err)
 	}
@@ -163,11 +163,9 @@ func TestClientAlternativesAreValidated(t *testing.T) {
 		t.Fatalf("conflicting alternative port accepted: %v", err)
 	}
 
-	for _, kind := range []string{"reality-xhttp-pq", "reality-grpc"} {
-		inv.Transport.ClientAlternatives = []ClientAlternative{{Kind: kind, Port: 8444}}
-		if err := inv.Validate(); err == nil || !strings.Contains(err.Error(), "experimental") {
-			t.Fatalf("experimental alternative %s accepted: %v", kind, err)
-		}
+	inv.Transport.ClientAlternatives = []ClientAlternative{{Kind: "unknown", Port: 8444}}
+	if err := inv.Validate(); err == nil || !strings.Contains(err.Error(), "must be reality-xhttp") {
+		t.Fatalf("unknown alternative accepted: %v", err)
 	}
 }
 
@@ -176,8 +174,8 @@ func TestInterserverAlternativesAreValidated(t *testing.T) {
 	inv.Entry.Host = "203.0.113.10"
 	inv.Exit.Host = "198.51.100.20"
 	inv.Transport.InterserverAlternatives = []InterserverAlternative{{Kind: "reality-xhttp", Port: 8443}}
-	if err := inv.Validate(); err == nil || !strings.Contains(err.Error(), "experimental") {
-		t.Fatalf("experimental interserver XHTTP alternative accepted: %v", err)
+	if err := inv.Validate(); err != nil {
+		t.Fatalf("interserver XHTTP alternative rejected: %v", err)
 	}
 	if got := inv.InterserverAlternativePort("reality-xhttp"); got != 8443 {
 		t.Fatalf("interserver XHTTP port = %d, want 8443", got)
@@ -203,14 +201,14 @@ func TestNodeLocalPortConflictsAreRejected(t *testing.T) {
 	}
 }
 
-func TestHysteria2IsRejectedByReleasedProfile(t *testing.T) {
+func TestHysteria2RequiresTrustedTLS(t *testing.T) {
 	inv := Default()
 	inv.Entry.Host = "203.0.113.10"
 	inv.Exit.Host = "198.51.100.20"
 	inv.Certificates.SubscriptionTLS = "acme-ip"
 	inv.Transport.Hysteria2 = Hysteria2{Enabled: true, Port: inv.Transport.ClientPort}
-	if err := inv.Validate(); err == nil || !strings.Contains(err.Error(), "experimental") {
-		t.Fatalf("experimental HY2 accepted: %v", err)
+	if err := inv.Validate(); err != nil {
+		t.Fatalf("HY2 with ACME IP TLS rejected: %v", err)
 	}
 	inv.Certificates.SubscriptionTLS = "pending"
 	if err := inv.Validate(); err == nil || !strings.Contains(err.Error(), "requires subscription_tls existing or acme-ip") {

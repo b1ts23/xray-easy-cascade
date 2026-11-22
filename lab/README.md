@@ -122,6 +122,11 @@ must end with `3XUI_LAB_DEPLOY_READY` and retain node id `1` and existing Realit
 The exit node TLS chain, master client identity, separate entry subscription certificate and two
 Reality key pairs remain independent and stable across container recreation.
 
+The extended inventory was deployed and independently verified on 22.11.2026. TCP/Vision, XHTTP,
+XHTTP+ML-KEM, legacy gRPC and Hysteria 2 each completed an HTTPS request through the exit and were
+published under one HAPP subscription. The hidden interserver XHTTP inbound was also created; the
+primary/fallback gate still uses health-aware TCP over IPv4/IPv6 and remains fail-closed.
+
 The generated panel credentials remain in each private Docker volume as `/etc/x-ui/lab-credentials`
 with mode `0600`; they are not committed or printed by the bootstrap.
 

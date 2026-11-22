@@ -49,12 +49,20 @@ transport:
   client_alternatives:
     - kind: reality-xhttp
       port: 8443
-  # Research-only field. Released inventory rejects enabled Hysteria 2.
+    - kind: reality-xhttp-pq
+      port: 10443
+    # Legacy compatibility route. Xray recommends XHTTP for new deployments.
+    - kind: reality-grpc
+      port: 9443
+  # UDP+TLS fallback; shares the numeric port with TCP without a socket conflict.
   hysteria2:
-    enabled: false
+    enabled: true
     port: 443
   interserver: reality-vision-tcp
   interserver_port: 443
+  interserver_alternatives:
+    - kind: reality-xhttp
+      port: 8443
   prefer_interserver: ipv4
   ipv6_fallback: auto
   client_reality:

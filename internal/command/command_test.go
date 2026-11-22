@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -50,6 +51,40 @@ func TestInitSelectsReferenceACMEIPLayout(t *testing.T) {
 	}
 	if inv.Certificates.SubscriptionTLS != "acme-ip" {
 		t.Fatalf("unexpected certificate defaults: %#v", inv.Certificates)
+	}
+	if got := inv.ClientAlternativePort("reality-xhttp"); got != 8443 {
+		t.Fatalf("base init XHTTP port = %d, want 8443", got)
+	}
+}
+
+func TestInitExtendedProfileIncludesAllOptInTransports(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "inventory.yml")
+	input := strings.Join([]string{"extended-cascade", "203.0.113.10", "198.51.100.20", "", "", "", "", ""}, "\n")
+	if err := Run([]string{"init", "--profile", "extended", "--output", path}, strings.NewReader(input), &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	inv, err := inventory.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for kind, want := range map[string]int{"reality-xhttp": 8443, "reality-xhttp-pq": 10443, "reality-grpc": 9443} {
+		if got := inv.ClientAlternativePort(kind); got != want {
+			t.Fatalf("%s port = %d, want %d", kind, got, want)
+		}
+	}
+	if !inv.Transport.Hysteria2.Enabled || inv.Transport.Hysteria2.Port != 443 {
+		t.Fatalf("extended Hysteria 2 = %#v", inv.Transport.Hysteria2)
+	}
+	if got := inv.InterserverAlternativePort("reality-xhttp"); got != 8443 {
+		t.Fatalf("interserver XHTTP port = %d, want 8443", got)
+	}
+}
+
+func TestInitRejectsUnknownTransportProfile(t *testing.T) {
+	err := Run([]string{"init", "--profile", "everything"}, strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "base or extended") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -195,6 +230,15 @@ transport:
 	err := Run([]string{"deploy", "--lab", "--yes", "--inventory", path, "--proxy-jump", "root@example.test:22"}, strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), "loopback") {
 		t.Fatalf("public target was not rejected by lab boundary: %v", err)
+	}
+}
+
+func TestRequiredCleanHostPortsIncludesInterserverAlternatives(t *testing.T) {
+	inv := inventory.Default()
+	inv.Transport.InterserverAlternatives = []inventory.InterserverAlternative{{Kind: "reality-xhttp", Port: 8443}}
+	ports := requiredCleanHostPorts("exit", inv)
+	if !slices.Contains(ports, 8443) {
+		t.Fatalf("interserver alternative port missing from preflight: %v", ports)
 	}
 }
 

@@ -45,11 +45,18 @@ transport:
   client_alternatives:
     - kind: reality-xhttp
       port: 10444
+    - kind: reality-xhttp-pq
+      port: 10446
+    - kind: reality-grpc
+      port: 10445
   hysteria2:
-    enabled: false
+    enabled: true
     port: 10443
   interserver: reality-vision-tcp
   interserver_port: 11443
+  interserver_alternatives:
+    - kind: reality-xhttp
+      port: 11444
   prefer_interserver: ipv4
   ipv6_fallback: required
   client_reality:

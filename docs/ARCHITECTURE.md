@@ -8,7 +8,8 @@ HAPP → entry/master 3x-ui ─┤
                                   └─ v4/v6 ──→ exit/node 3x-ui ──→ интернет
 ```
 
-Клиент знает только entry и в стабильном профиле получает одной подпиской TCP и XHTTP. Выбор direct/exit выполняет
+Клиент знает только entry и в базовом профиле получает одной подпиской TCP и XHTTP. Расширенный профиль
+добавляет XHTTP+ML-KEM, gRPC legacy и Hysteria 2. Выбор direct/exit выполняет
 серверный Xray на entry. Типовой, но не обязательный сценарий: entry в РФ, exit за рубежом.
 
 ## Управление
@@ -74,9 +75,9 @@ HAPP не должен принимать server-side `direct` за client-side 
 Многомаршрутная подписка даёт HAPP набор альтернатив, но сама по себе не доказывает hot failover. HAPP документирует `subscription-autoconnect-type: lowestdelay` для выбора при автоподключении. Бесшовное переключение активной сессии не обещаем до отдельного E2E на Android/iOS/Desktop.
 Финальный acceptance gate доказывает TCP и XHTTP через exit; XHTTP остаётся рабочим при scoped REJECT основного TCP-порта.
 
-PQ XHTTP, Hysteria 2 и межсерверный XHTTP остаются экспериментальными и не проходят validation released inventory. gRPC исключён из default: Xray 26.10.21 печатает deprecation warning и рекомендует XHTTP.
-
-Hysteria 2 доказан только в исследовательском lab и не проходит validation released inventory. WARP планируется только как явно включаемый outbound на exit; он не должен заменять обычный exit или регистрировать Cloudflare device без согласия. AWG исключён.
+PQ XHTTP, Hysteria 2 и межсерверный XHTTP допускаются как opt-in транспорты и покрыты отдельными
+listener/subscription/firewall проверками. gRPC исключён из default: Xray 26.10.21 печатает deprecation warning
+и рекомендует XHTTP. WARP планируется только как явно включаемый outbound на exit; AWG исключён.
 - Подписка — bearer credential. URL не пишется в обычные логи и отчёты.
 - Безопасный HTTPS-режим подписки без домена должен быть проверен отдельно до обещания «домен не нужен».
 

@@ -87,8 +87,7 @@ type Hysteria2 struct {
 
 // ClientAlternative is an additional entry transport published under the
 // same 3x-ui subscription identity as the primary client transport. Keeping
-// the list typed makes later gRPC/Hysteria additions explicit instead of
-// growing a set of loosely related port fields.
+// the list typed prevents arbitrary, unvalidated transport strings.
 type ClientAlternative struct {
 	Kind string `yaml:"kind"`
 	Port int    `yaml:"port"`
@@ -289,12 +288,8 @@ func (inv Inventory) Validate() error {
 	alternativeKinds := map[string]bool{}
 	for index, alternative := range inv.Transport.ClientAlternatives {
 		field := fmt.Sprintf("transport.client_alternatives[%d]", index)
-		if alternative.Kind != "reality-xhttp" {
-			if alternative.Kind == "reality-xhttp-pq" || alternative.Kind == "reality-grpc" {
-				problems = append(problems, field+".kind is experimental and cannot be enabled in the released profile")
-			} else {
-				problems = append(problems, field+".kind must be reality-xhttp in the released profile")
-			}
+		if alternative.Kind != "reality-xhttp" && alternative.Kind != "reality-xhttp-pq" && alternative.Kind != "reality-grpc" {
+			problems = append(problems, field+".kind must be reality-xhttp, reality-xhttp-pq, or reality-grpc")
 		}
 		if alternativeKinds[alternative.Kind] {
 			problems = append(problems, field+".kind must be unique")
@@ -309,7 +304,6 @@ func (inv Inventory) Validate() error {
 		}
 	}
 	if inv.Transport.Hysteria2.Enabled {
-		problems = append(problems, "transport.hysteria2 is experimental and cannot be enabled in the released profile")
 		if inv.Transport.Hysteria2.Port < 1 || inv.Transport.Hysteria2.Port > 65535 {
 			problems = append(problems, "transport.hysteria2.port must be between 1 and 65535 when enabled")
 		}
@@ -321,9 +315,6 @@ func (inv Inventory) Validate() error {
 		problems = append(problems, "transport.interserver_port must be between 1 and 65535")
 	}
 	interserverKinds := map[string]bool{}
-	if len(inv.Transport.InterserverAlternatives) > 0 {
-		problems = append(problems, "transport.interserver_alternatives is experimental and cannot be enabled in the released profile")
-	}
 	for index, alternative := range inv.Transport.InterserverAlternatives {
 		field := fmt.Sprintf("transport.interserver_alternatives[%d]", index)
 		if alternative.Kind != "reality-xhttp" {

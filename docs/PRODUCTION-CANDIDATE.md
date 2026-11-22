@@ -42,11 +42,15 @@ container 21.11.2026.
 | entry | 80/tcp | public | временный standalone HTTP-01 для short-lived IP certificate |
 | entry | 443/tcp | public | VLESS + REALITY клиента |
 | entry | 8443/tcp | public | опциональный VLESS + XHTTP + REALITY |
+| entry | 10443/tcp | public | opt-in VLESS + XHTTP + REALITY + ML-KEM |
+| entry | 9443/tcp | public | opt-in legacy VLESS + gRPC + REALITY |
+| entry | 443/udp | public | opt-in Hysteria 2 + TLS |
 | entry | 2096/tcp | public | HAPP HTTPS subscription |
 | entry | 2053/tcp | loopback | центральная панель через SSH tunnel |
 | exit | SSH из inventory | existing access | сохраняется до любых firewall-изменений |
 | exit | 80/tcp | public | временный standalone HTTP-01 для short-lived IP certificate |
 | exit | 443/tcp | только entry IPv4/IPv6 | межсерверный VLESS + REALITY |
+| exit | 8443/tcp | только entry IPv4/IPv6 | opt-in межсерверный VLESS + XHTTP + REALITY |
 | exit | 2053/tcp | только entry IPv4/IPv6 | node API; далее mTLS |
 
 Правила должны добавляться с project comments и ownership без `ufw reset` и без удаления чужих
@@ -66,7 +70,7 @@ full restore прошли в отдельном network namespace однораз
 
 - создать согласованные snapshots обеих 3x-ui БД до первой runtime-мутации;
 - зарегистрировать exit по scoped `node-sync` token и SHA-256 pin активного ACME leaf certificate;
-- создать клиентские TCP/XHTTP и межсерверный VLESS + REALITY inbound через API 3x-ui;
+- создать базовые TCP/XHTTP, включённые opt-in клиентские транспорты и межсерверные VLESS + REALITY inbounds через API 3x-ui;
 - установить закреплённые RoscomVPN geo-assets, server-side direct/cascade/block правила и HAPP deeplink;
 - проверить checksum deeplink до отправки на сервер;
 - выпустить master/client mTLS identity, доверить master CA на exit, перевести node в `mtls` и удалить node token;

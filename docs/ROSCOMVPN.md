@@ -57,6 +57,6 @@ Balancer использует видимые `cascade-exit-ipv4` и, при на
 - `Routing-Enable: true`;
 - наличие `Routing`;
 - SHA-256 заголовка совпадает с детерминированно адаптированным deeplink текущего deploy.
-- subscription body содержит TCP и XHTTP для одного `subId`; исследовательские PQ/gRPC/Hysteria в released subscription не публикуются.
+- subscription body содержит все включённые клиентские транспорты для одного `subId`: базовые TCP/XHTTP и opt-in PQ/gRPC/Hysteria 2.
 
 Секретный subscription URL, `subId` и сам header в output не печатаются.

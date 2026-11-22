@@ -43,6 +43,8 @@ func (f *runtimeFakeRunner) Run(_ context.Context, target remote.Target, script 
 		kind, output = "stage", "3XUI_PRODUCTION_STAGED role="+role
 	case strings.Contains(script, "3XUI_PRODUCTION_FIREWALL_READY"):
 		kind, output = "firewall", "3XUI_PRODUCTION_FIREWALL_READY role="+role
+	case strings.Contains(script, "3XUI_PRODUCTION_SSH_PROTECTION_READY"):
+		kind, output = "ssh-protect", "3XUI_PRODUCTION_SSH_PROTECTION_READY role="+role
 	case strings.Contains(script, "3XUI_PRODUCTION_ACTIVATED"):
 		kind, output = "activate", "3XUI_PRODUCTION_ACTIVATED role="+role
 	case strings.Contains(script, "3XUI_PRODUCTION_ACME_READY"):
