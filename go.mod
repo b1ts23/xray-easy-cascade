@@ -1,6 +1,6 @@
 module github.com/b1ts23/xray-easy-cascade
 
-go 1.25.0
+go 1.26.11
 
 require (
 	filippo.io/age v1.3.2

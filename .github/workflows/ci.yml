@@ -11,8 +11,8 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: true
@@ -32,20 +32,30 @@ jobs:
           fi
       - name: Verify modules
         run: go mod verify
+      - name: Check shell syntax
+        run: |
+          sh -n install.sh
+          bash -n scripts/build-release.sh
       - name: Check formatting
         run: test -z "$(gofmt -l .)"
       - name: Test
         run: go test ./...
+      - name: Race test
+        run: go test -race ./...
       - name: Vet
         run: go vet ./...
-      - name: Build
-        run: go build -trimpath -o bin/vpnctl ./cmd/vpnctl
-      - name: Confirm production mutations are disabled
+      - name: Vulnerability scan
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
+      - name: Build and verify release contract
         run: |
-          for command in deploy backup restore rollback status verify; do
-            set +e
-            ./bin/vpnctl "$command"
-            code=$?
-            set -e
-            test "$code" -eq 2
-          done
+          ./scripts/build-release.sh ci dist
+          (cd dist && sha256sum -c SHA256SUMS)
+          ./dist/vpnctl_linux_amd64 version
+          test -f dist/vpnctl_linux_amd64.sha256
+          test -f dist/vpnctl_linux_arm64.sha256
+          test -f dist/vpnctl_darwin_amd64.sha256
+          test -f dist/vpnctl_darwin_arm64.sha256
+      - name: CLI smoke tests
+        run: |
+          ./dist/vpnctl_linux_amd64 --help
+          ./dist/vpnctl_linux_amd64 plan --inventory inventory.example.yml

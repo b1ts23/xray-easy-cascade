@@ -1,18 +1,20 @@
 # Contributing
 
-The project accepts design discussion and tests while production deploy remains disabled.
+The project accepts fixes, tests and design discussion. Production changes must remain scoped to two
+explicitly confirmed clean VPS instances and preserve automatic rollback until end-to-end checks pass.
 
 Before a pull request:
 
 ```bash
 gofmt -w .
 go test ./...
+go test -race ./...
 go vet ./...
-go build -trimpath ./cmd/vpnctl
+./scripts/build-release.sh dev dist
 ```
 
 Do not submit server dumps, inventories, real IP credentials, subscription links or generated keys.
-New mutation paths must preserve the production fail-closed boundary, strict SSH host-key checking,
+New mutation paths must preserve the clean-host boundary, strict SSH host-key checking,
 transactional rollback and redacted output. Runtime configuration belongs to the pinned 3x-ui API/DB;
 do not add a second standalone Xray `config.json` source of truth.
 

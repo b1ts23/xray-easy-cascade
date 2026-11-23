@@ -33,7 +33,7 @@ import (
 
 var Version = "0.0.0-design"
 
-var ErrNotImplemented = errors.New("command is intentionally disabled in the design preview")
+var ErrNotImplemented = errors.New("command is not implemented for production mode")
 var ErrPreflightBlocked = errors.New("one or more nodes failed preflight")
 var ErrVerificationFailed = errors.New("one or more runtime checks failed")
 
@@ -99,7 +99,7 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) error {
 }
 
 func printHelp(out io.Writer) {
-	fmt.Fprintln(out, `vpnctl — two-node Xray cascade controller (design preview)
+	fmt.Fprintln(out, `vpnctl — two-node Xray cascade controller
 
 Usage:
   vpnctl install [--work-dir DIR] [--profile base|extended]
@@ -1301,7 +1301,7 @@ func runPlan(args []string, out, errOut io.Writer) error {
 	for _, line := range validatedCertificates {
 		fmt.Fprintln(out, "- validated:", line)
 	}
-	fmt.Fprintln(out, "\nNext: run vpnctl preflight. Remote deploy remains disabled in this design preview.")
+	fmt.Fprintln(out, "\nNext: run vpnctl preflight. Deploy changes only the two confirmed clean hosts and keeps rollback armed through E2E verification.")
 	return nil
 }
 
