@@ -81,6 +81,7 @@ func Script(role string, inv inventory.Inventory) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("encode expected alternatives: %w", err)
 	}
+	expectedBase64 := base64.StdEncoding.EncodeToString(expectedRaw)
 	return fmt.Sprintf(`set -eu
 umask 077
 role=%s
@@ -108,6 +109,8 @@ grpc=$(listener %d)
 hysteria2=$(udp_listener %d)
 subscription=$(listener %d)
 interserver=$(listener %d)
+expected_b64=%s
+expected=$(printf '%%s' "$expected_b64" | base64 -d)
 node='{"present":false,"status":"","tlsVerifyMode":"","apiTokenPresent":false}'
 sub='{"enabled":false,"routing":false,"happDetect":false}'
 if [ "$role" = entry ]; then
@@ -118,11 +121,11 @@ if [ "$role" = entry ]; then
   jq -e '.success==true' "$work/settings.json" >/dev/null
   sub=$(jq -c '{enabled:(.obj.subEnable // false),routing:(.obj.subEnableRouting // false),happDetect:(.obj.subHappAutoDetect // false)}' "$work/settings.json")
 fi
-jq -cn --arg role "$role" --argjson xray "$xray" --argjson inbounds "$inbounds" --argjson expected '%s' --argjson client "$client" --argjson xhttp "$xhttp" --argjson xhttpPq "$xhttp_pq" --argjson grpc "$grpc" --argjson hysteria2 "$hysteria2" --argjson subscription "$subscription" --argjson interserver "$interserver" --argjson node "$node" --argjson sub "$sub" '{schema:1,role:$role,panelReady:true,xrayRunning:$xray,inboundCount:$inbounds,expectedAlternatives:$expected,listeners:{client:$client,xhttp:$xhttp,xhttpPq:$xhttpPq,grpc:$grpc,hysteria2:$hysteria2,subscription:$subscription,interserver:$interserver},node:$node,subscription:$sub}' > "$work/status.json"
+jq -cn --arg role "$role" --argjson xray "$xray" --argjson inbounds "$inbounds" --argjson expected "$expected" --argjson client "$client" --argjson xhttp "$xhttp" --argjson xhttpPq "$xhttp_pq" --argjson grpc "$grpc" --argjson hysteria2 "$hysteria2" --argjson subscription "$subscription" --argjson interserver "$interserver" --argjson node "$node" --argjson sub "$sub" '{schema:1,role:$role,panelReady:true,xrayRunning:$xray,inboundCount:$inbounds,expectedAlternatives:$expected,listeners:{client:$client,xhttp:$xhttp,xhttpPq:$xhttpPq,grpc:$grpc,hysteria2:$hysteria2,subscription:$subscription,interserver:$interserver},node:$node,subscription:$sub}' > "$work/status.json"
 printf '3XUI_STATUS\t'
 base64 -w0 "$work/status.json"
 printf '\n'
-`, role, scheme, basePath, curlTLS, inv.Transport.ClientPort, xhttpPort, xhttpPQPort, grpcPort, hysteriaPort, inv.Subscription.Port, inv.Transport.InterserverPort, string(expectedRaw)), nil
+`, role, scheme, basePath, curlTLS, inv.Transport.ClientPort, xhttpPort, xhttpPQPort, grpcPort, hysteriaPort, inv.Subscription.Port, inv.Transport.InterserverPort, expectedBase64), nil
 }
 
 func Parse(output, expectedRole string) (Status, error) {

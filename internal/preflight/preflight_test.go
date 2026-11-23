@@ -92,3 +92,11 @@ func TestParseRejectsDuplicateFact(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestParseRejectsOutOfRangeIntFact(t *testing.T) {
+	raw := strings.Replace(goodFacts, "uid\t0", "uid\t9223372036854775808", 1)
+	_, err := Parse(strings.NewReader(raw))
+	if err == nil || !strings.Contains(err.Error(), "invalid integer fact") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

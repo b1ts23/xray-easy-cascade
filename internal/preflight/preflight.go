@@ -117,6 +117,17 @@ func Parse(reader io.Reader) (Facts, error) {
 		}
 		return parsed, nil
 	}
+	integerInt := func(key string) (int, error) {
+		value, ok := values[key]
+		if !ok {
+			return 0, fmt.Errorf("missing fact %q", key)
+		}
+		parsed, err := strconv.Atoi(value)
+		if err != nil {
+			return 0, fmt.Errorf("invalid integer fact %q", key)
+		}
+		return parsed, nil
+	}
 	required := func(key string) (string, error) {
 		value, ok := values[key]
 		if !ok || value == "" {
@@ -125,11 +136,11 @@ func Parse(reader io.Reader) (Facts, error) {
 		return value, nil
 	}
 
-	schema, err := integer("schema")
+	schema, err := integerInt("schema")
 	if err != nil || schema != 1 {
 		return Facts{}, errors.New("unsupported or missing preflight schema")
 	}
-	uid, err := integer("uid")
+	uid, err := integerInt("uid")
 	if err != nil {
 		return Facts{}, err
 	}
@@ -171,7 +182,7 @@ func Parse(reader io.Reader) (Facts, error) {
 		}
 	}
 	return Facts{
-		Schema: int(schema), UID: int(uid), OSID: get("os_id"), OSVersion: get("os_version"),
+		Schema: schema, UID: uid, OSID: get("os_id"), OSVersion: get("os_version"),
 		Arch: get("arch"), Kernel: get("kernel"), PID1: get("pid1"), Systemd: get("systemd"),
 		APTGet: get("apt_get"), Curl: get("curl"), SS: get("ss"), IPv4Default: get("ipv4_default"),
 		IPv6Global: get("ipv6_global"), Port443: get("port_443"), TCPListeners: tcpListeners, UDPListeners: udpListeners, MemoryKiB: memory,

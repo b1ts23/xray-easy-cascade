@@ -30,7 +30,8 @@ func TestScriptSyntaxAndRedaction(t *testing.T) {
 			t.Fatalf("diagnostic script exposes %q", forbidden)
 		}
 	}
-	for _, required := range []string{"xhttp=$(listener 8443)", "xhttp_pq=$(listener 10443)", "grpc=$(listener 9443)", "hysteria2=$(udp_listener 443)", `--argjson expected '["xhttp","xhttp-pq","grpc","hysteria2"]'`} {
+	expectedBase64 := base64.StdEncoding.EncodeToString([]byte(`["xhttp","xhttp-pq","grpc","hysteria2"]`))
+	for _, required := range []string{"xhttp=$(listener 8443)", "xhttp_pq=$(listener 10443)", "grpc=$(listener 9443)", "hysteria2=$(udp_listener 443)", "expected_b64=" + expectedBase64, `--argjson expected "$expected"`} {
 		if !strings.Contains(script, required) {
 			t.Fatalf("diagnostic script missing %q", required)
 		}
